@@ -43,4 +43,8 @@ export const appRouter = createTRPCRouter({
   }),
 });
 
+console.log("[App Router] forgotPassword route type:", typeof forgotPasswordRoute);
+console.log("[App Router] forgotPassword route keys:", forgotPasswordRoute ? Object.keys(forgotPasswordRoute) : "NO");
+console.log("[App Router] Router structure:", Object.keys(appRouter._def.procedures));
+
 export type AppRouter = typeof appRouter;

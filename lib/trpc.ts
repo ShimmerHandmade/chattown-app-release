@@ -54,15 +54,14 @@ export const trpcClient = trpc.createClient({
           if (!response.ok) {
             const text = await response.clone().text();
             console.error("[tRPC Client] Error response body:", text.substring(0, 500));
+            console.error("[tRPC Client] Full URL:", url);
+            console.error("[tRPC Client] Request body:", options?.body ? (typeof options.body === 'string' ? options.body.substring(0, 500) : 'Not a string') : 'No body');
           }
           
           return response;
         } catch (error: any) {
-          console.error("[tRPC Client] Fetch failed:", error?.message || error);
-          console.error("[tRPC Client] This usually means:");
-          console.error("  1. Backend server is not running");
-          console.error("  2. Network connectivity issue");
-          console.error("  3. Invalid API URL:", url);
+          console.error("[tRPC Client] Fetch error:", error?.message || error);
+          console.error("[tRPC Client] Full URL:", url);
           throw error;
         }
       },

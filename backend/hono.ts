@@ -26,6 +26,12 @@ app.onError((err, c) => {
   );
 });
 
+app.all("/api/trpc/*", async (c, next) => {
+  console.log("[Hono] Incoming tRPC request:", c.req.method, c.req.url);
+  console.log("[Hono] Request path:", c.req.path);
+  await next();
+});
+
 app.use(
   "/api/trpc/*",
   trpcServer({
@@ -44,6 +50,16 @@ app.get("/", (c) => {
 
 app.get("/api", (c) => {
   return c.json({ status: "ok", message: "API is running" });
+});
+
+app.get("/api/test-router", (c) => {
+  const routes = Object.keys(appRouter._def.procedures);
+  console.log("[Hono] Available tRPC routes:", routes);
+  return c.json({ 
+    status: "ok", 
+    message: "Router test",
+    availableRoutes: routes
+  });
 });
 
 app.notFound((c) => {
