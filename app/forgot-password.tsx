@@ -43,7 +43,7 @@ export default function ForgotPasswordScreen() {
       if (result.success) {
         Alert.alert(
           "Check Console",
-          "For this demo, your login credentials have been printed to the console. In production, these would be sent to your email.",
+          result.message || "For this demo, your login credentials have been printed to the console. In production, these would be sent to your email.",
           [
             {
               text: "OK",
@@ -54,27 +54,44 @@ export default function ForgotPasswordScreen() {
       }
     } catch (error: any) {
       console.error("[ForgotPassword] Error occurred:", error);
+      console.error("[ForgotPassword] Error type:", error?.constructor?.name);
+      console.error("[ForgotPassword] Error shape:", error?.shape);
+      console.error("[ForgotPassword] Error data:", error?.data);
+      console.error("[ForgotPassword] Error message:", error?.message);
+      console.error("[ForgotPassword] Full error:", JSON.stringify(error, Object.getOwnPropertyNames(error)));
       
       let errorMessage = "Failed to process password reset request";
-      let errorTitle = "Server Error";
+      let errorTitle = "Error";
       
-      if (error?.message?.includes("JSON Parse error") || error?.message?.includes("404")) {
-        errorTitle = "⚠️ Backend Not Available";
-        errorMessage = "The forgot password feature is not currently available. This typically happens when:\n\n1. The backend server is restarting\n2. The route hasn't been deployed yet\n\nPlease wait a moment and try again, or contact support if the issue persists.";
+      const is404 = error?.message?.includes("404") || 
+                    error?.message?.includes("Not Found") || 
+                    error?.message?.includes("JSON Parse error");
+      
+      if (is404) {
+        errorTitle = "⚠️ Service Temporarily Unavailable";
+        errorMessage = "The password reset service is currently unavailable. This usually means the backend is still starting up or redeploying.\n\nPlease try one of these options:\n\n1. Wait 30-60 seconds and try again\n2. Use the Back button to sign in with your existing credentials\n3. Contact support if this persists\n\nTip: The backend may have recently been updated and needs time to fully restart.";
       } else if (error?.message?.includes("Failed to fetch") || error?.message?.includes("Network request failed")) {
         errorTitle = "Connection Error";
         errorMessage = "Unable to connect to the server. Please check your internet connection and try again.";
+      } else if (error?.shape?.data?.zodError) {
+        errorMessage = "Please check your email format and try again.";
       } else if (error?.shape?.message) {
         errorMessage = error.shape.message;
       } else if (error?.data?.message) {
         errorMessage = error.data.message;
-      } else if (error?.message) {
+      } else if (error?.message && !is404) {
         errorMessage = error.message;
       }
       
       Alert.alert(
         errorTitle,
-        errorMessage
+        errorMessage,
+        [
+          {
+            text: "OK",
+            style: "default"
+          }
+        ]
       );
     } finally {
       setIsLoading(false);
