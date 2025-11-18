@@ -4,6 +4,8 @@ import { appRouter } from "./trpc/app-router";
 import { createContext } from "./trpc/create-context";
 import { cors } from "hono/cors";
 
+console.log("[Backend] Server starting with forgotPassword and resetPassword routes");
+
 const app = new Hono();
 
 app.use("*", cors({
