@@ -58,9 +58,9 @@ export default function ForgotPasswordScreen() {
       let errorMessage = "Failed to process password reset request";
       let errorTitle = "Error";
       
-      if (error?.message?.includes("JSON Parse error")) {
-        errorTitle = "Server Configuration Error";
-        errorMessage = "The forgot password feature is not properly configured on the server. Please try again later or contact support.";
+      if (error?.message?.includes("JSON Parse error") || error?.message?.includes("404")) {
+        errorTitle = "Server Restart Required";
+        errorMessage = "The backend server needs to be restarted for the forgot password feature to work. The routes are configured correctly in the code but the server hasn't loaded them yet. Please restart the backend server.";
       } else if (error?.message?.includes("Failed to fetch") || error?.message?.includes("Network request failed")) {
         errorTitle = "Connection Error";
         errorMessage = "Unable to connect to the server. Please check your internet connection and try again.";
