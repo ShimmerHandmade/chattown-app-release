@@ -2,8 +2,6 @@ import { createTRPCRouter } from "./create-context";
 import signupRoute from "./routes/auth/signup/route";
 import loginRoute from "./routes/auth/login/route";
 import logoutRoute from "./routes/auth/logout/route";
-import forgotPasswordRoute from "./routes/auth/forgot-password/route";
-import resetPasswordRoute from "./routes/auth/reset-password/route";
 import deleteAccountRoute from "./routes/auth/delete-account/route";
 import meRoute from "./routes/auth/me/route";
 import createRoomRoute from "./routes/rooms/create/route";
@@ -15,6 +13,8 @@ import removeUserRoute from "./routes/rooms/remove-user/route";
 import sendMessageRoute from "./routes/messages/send/route";
 import listMessagesRoute from "./routes/messages/list/route";
 import registerTokenRoute from "./routes/notifications/register-token/route";
+import forgotPasswordRoute from "./routes/auth/forgot-password/route";
+import resetPasswordRoute from "./routes/auth/reset-password/route";
 
 export const appRouter = createTRPCRouter({
   auth: createTRPCRouter({
