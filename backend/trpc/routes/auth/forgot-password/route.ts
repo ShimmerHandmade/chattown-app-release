@@ -3,7 +3,7 @@ import { z } from "zod";
 import { db } from "../../../../db";
 import { TRPCError } from "@trpc/server";
 
-export default publicProcedure
+const forgotPasswordProcedure = publicProcedure
   .input(
     z.object({
       email: z.string().email(),
@@ -52,3 +52,5 @@ export default publicProcedure
       });
     }
   });
+
+export default forgotPasswordProcedure;

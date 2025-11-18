@@ -3,7 +3,7 @@ import { z } from "zod";
 import { db } from "../../../../db";
 import { TRPCError } from "@trpc/server";
 
-export default publicProcedure
+const resetPasswordProcedure = publicProcedure
   .input(
     z.object({
       token: z.string(),
@@ -44,3 +44,5 @@ export default publicProcedure
       });
     }
   });
+
+export default resetPasswordProcedure;
