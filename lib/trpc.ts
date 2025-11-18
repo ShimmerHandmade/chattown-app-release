@@ -8,13 +8,18 @@ const SESSION_KEY = "@chat_app_session";
 export const trpc = createTRPCReact<AppRouter>();
 
 const getBaseUrl = () => {
-  if (process.env.EXPO_PUBLIC_RORK_API_BASE_URL) {
-    return process.env.EXPO_PUBLIC_RORK_API_BASE_URL;
+  const baseUrl = process.env.EXPO_PUBLIC_RORK_API_BASE_URL;
+  
+  if (!baseUrl) {
+    console.error("[tRPC Config] EXPO_PUBLIC_RORK_API_BASE_URL is not set");
+    console.error("[tRPC Config] Available env vars:", Object.keys(process.env).filter(k => k.startsWith('EXPO')));
+    throw new Error(
+      "No base url found, please set EXPO_PUBLIC_RORK_API_BASE_URL"
+    );
   }
-
-  throw new Error(
-    "No base url found, please set EXPO_PUBLIC_RORK_API_BASE_URL"
-  );
+  
+  console.log("[tRPC Config] Using base URL:", baseUrl);
+  return baseUrl;
 };
 
 export const getSession = async (): Promise<string | null> => {
@@ -40,8 +45,6 @@ export const trpcClient = trpc.createClient({
       fetch: async (url, options) => {
         console.log("[tRPC Client] Making request to:", url);
         console.log("[tRPC Client] Request method:", options?.method);
-        console.log("[tRPC Client] Request headers:", options?.headers);
-        console.log("[tRPC Client] Request body:", options?.body);
         
         try {
           const response = await fetch(url, options);
@@ -54,8 +57,12 @@ export const trpcClient = trpc.createClient({
           }
           
           return response;
-        } catch (error) {
-          console.error("[tRPC Client] Fetch error:", error);
+        } catch (error: any) {
+          console.error("[tRPC Client] Fetch failed:", error?.message || error);
+          console.error("[tRPC Client] This usually means:");
+          console.error("  1. Backend server is not running");
+          console.error("  2. Network connectivity issue");
+          console.error("  3. Invalid API URL:", url);
           throw error;
         }
       },

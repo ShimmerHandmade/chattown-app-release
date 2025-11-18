@@ -60,14 +60,24 @@ export default function ForgotPasswordScreen() {
     } catch (error: any) {
       console.error("[ForgotPassword] Error occurred:", error);
       console.error("[ForgotPassword] Error type:", error?.constructor?.name);
-      console.error("[ForgotPassword] Error shape:", error?.shape);
-      console.error("[ForgotPassword] Error data:", error?.data);
       console.error("[ForgotPassword] Error message:", error?.message);
-      console.error("[ForgotPassword] Full error:", JSON.stringify(error, null, 2));
       
-      const errorMessage = error?.shape?.message || error?.data?.message || error?.message || "Failed to process password reset request";
+      let errorMessage = "Failed to process password reset request";
+      let errorTitle = "Error";
+      
+      if (error?.message?.includes("Failed to fetch") || error?.message?.includes("Network request failed")) {
+        errorTitle = "Connection Error";
+        errorMessage = "Unable to connect to the server. Please check your internet connection and try again.";
+      } else if (error?.shape?.message) {
+        errorMessage = error.shape.message;
+      } else if (error?.data?.message) {
+        errorMessage = error.data.message;
+      } else if (error?.message) {
+        errorMessage = error.message;
+      }
+      
       Alert.alert(
-        "Error",
+        errorTitle,
         errorMessage
       );
     } finally {
