@@ -56,11 +56,11 @@ export default function ForgotPasswordScreen() {
       console.error("[ForgotPassword] Error occurred:", error);
       
       let errorMessage = "Failed to process password reset request";
-      let errorTitle = "Error";
+      let errorTitle = "Server Error";
       
       if (error?.message?.includes("JSON Parse error") || error?.message?.includes("404")) {
-        errorTitle = "Server Restart Required";
-        errorMessage = "The backend server needs to be restarted for the forgot password feature to work. The routes are configured correctly in the code but the server hasn't loaded them yet. Please restart the backend server.";
+        errorTitle = "⚠️ Backend Not Available";
+        errorMessage = "The forgot password feature is not currently available. This typically happens when:\n\n1. The backend server is restarting\n2. The route hasn't been deployed yet\n\nPlease wait a moment and try again, or contact support if the issue persists.";
       } else if (error?.message?.includes("Failed to fetch") || error?.message?.includes("Network request failed")) {
         errorTitle = "Connection Error";
         errorMessage = "Unable to connect to the server. Please check your internet connection and try again.";
