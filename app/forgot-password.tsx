@@ -36,11 +36,6 @@ export default function ForgotPasswordScreen() {
     setIsLoading(true);
     try {
       console.log("[ForgotPassword] Starting request with email:", email.trim());
-      console.log("[ForgotPassword] Mutation state:", {
-        isLoading: forgotPasswordMutation.isPending,
-        isError: forgotPasswordMutation.isError,
-        error: forgotPasswordMutation.error,
-      });
       
       const result = await forgotPasswordMutation.mutateAsync({ email: email.trim() });
       console.log("[ForgotPassword] Success! Result:", result);
@@ -59,13 +54,14 @@ export default function ForgotPasswordScreen() {
       }
     } catch (error: any) {
       console.error("[ForgotPassword] Error occurred:", error);
-      console.error("[ForgotPassword] Error type:", error?.constructor?.name);
-      console.error("[ForgotPassword] Error message:", error?.message);
       
       let errorMessage = "Failed to process password reset request";
       let errorTitle = "Error";
       
-      if (error?.message?.includes("Failed to fetch") || error?.message?.includes("Network request failed")) {
+      if (error?.message?.includes("JSON Parse error")) {
+        errorTitle = "Server Configuration Error";
+        errorMessage = "The forgot password feature is not properly configured on the server. Please try again later or contact support.";
+      } else if (error?.message?.includes("Failed to fetch") || error?.message?.includes("Network request failed")) {
         errorTitle = "Connection Error";
         errorMessage = "Unable to connect to the server. Please check your internet connection and try again.";
       } else if (error?.shape?.message) {
