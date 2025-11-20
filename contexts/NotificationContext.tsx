@@ -19,8 +19,8 @@ Notifications.setNotificationHandler({
 export const [NotificationProvider, useNotifications] = createContextHook(() => {
   const { user } = useAuth();
   const [expoPushToken, setExpoPushToken] = useState<string | undefined>();
-  const notificationListener = useRef<any>(null);
-  const responseListener = useRef<any>(null);
+  const notificationListener = useRef<Notifications.Subscription | null>(null);
+  const responseListener = useRef<Notifications.Subscription | null>(null);
 
   async function registerForPushNotificationsAsync() {
     if (Platform.OS === "web") {
