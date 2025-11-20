@@ -3,7 +3,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import * as Notifications from "expo-notifications";
 import { Platform, Alert } from "react-native";
 import { useAuth } from "@/contexts/AuthContext";
-import { trpc } from "@/lib/trpc";
+import { supabase } from "@/lib/supabase";
 import { router } from "expo-router";
 
 Notifications.setNotificationHandler({
@@ -11,6 +11,8 @@ Notifications.setNotificationHandler({
     shouldShowAlert: true,
     shouldPlaySound: true,
     shouldSetBadge: true,
+    shouldShowBanner: true,
+    shouldShowList: true,
   }),
 });
 
@@ -19,8 +21,6 @@ export const [NotificationProvider, useNotifications] = createContextHook(() => 
   const [expoPushToken, setExpoPushToken] = useState<string | undefined>();
   const notificationListener = useRef<any>();
   const responseListener = useRef<any>();
-
-  const registerTokenMutation = trpc.notifications.registerToken.useMutation();
 
   async function registerForPushNotificationsAsync() {
     if (Platform.OS === "web") {
@@ -62,7 +62,10 @@ export const [NotificationProvider, useNotifications] = createContextHook(() => 
       if (token) {
         setExpoPushToken(token);
         try {
-          await registerTokenMutation.mutateAsync({ token });
+          await supabase.from("push_tokens").upsert({
+            user_id: user.id,
+            token,
+          });
           console.log("Token registered with backend");
         } catch (error) {
           console.error("Failed to register token with backend:", error);
@@ -70,7 +73,8 @@ export const [NotificationProvider, useNotifications] = createContextHook(() => 
       }
     });
 
-    notificationListener.current = Notifications.addNotificationReceivedListener(
+    notificationListener.current =
+      Notifications.addNotificationReceivedListener(
       (notification) => {
         console.log("Notification received:", notification);
       }

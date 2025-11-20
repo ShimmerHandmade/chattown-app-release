@@ -1,50 +1,228 @@
 import createContextHook from "@nkzw/create-context-hook";
-import { useCallback, useMemo } from "react";
-import { Room } from "@/types/chat";
+import { useCallback, useMemo, useEffect, useState } from "react";
+import { Room, Message } from "@/types/chat";
 import { useAuth } from "@/contexts/AuthContext";
-import { trpc } from "@/lib/trpc";
+import { supabase } from "@/lib/supabase";
 import { Alert } from "react-native";
 
 export const [ChatProvider, useChat] = createContextHook(() => {
   const { user } = useAuth();
-  
-  const { data: rooms = [], refetch: refetchRooms, isLoading } = trpc.rooms.list.useQuery(undefined, {
-    enabled: !!user,
-  });
+  const [rooms, setRooms] = useState<Room[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
 
-  const createRoomMutation = trpc.rooms.create.useMutation();
-  const joinRoomMutation = trpc.rooms.join.useMutation();
-  const deleteRoomMutation = trpc.rooms.delete.useMutation();
-  const sendMessageMutation = trpc.messages.send.useMutation();
+  const generateCode = (): string => {
+    return Math.random().toString(36).substring(2, 8).toUpperCase();
+  };
+
+  const fetchRooms = useCallback(async () => {
+    if (!user) return;
+
+    try {
+      setIsLoading(true);
+
+      const { data: roomMembers, error: membersError } = await supabase
+        .from("room_members")
+        .select("room_id")
+        .eq("user_id", user.id);
+
+      if (membersError) throw membersError;
+
+      const roomIds = roomMembers.map((rm) => rm.room_id);
+
+      if (roomIds.length === 0) {
+        setRooms([]);
+        return;
+      }
+
+      const { data: roomsData, error: roomsError } = await supabase
+        .from("rooms")
+        .select("*")
+        .in("id", roomIds)
+        .order("created_at", { ascending: false });
+
+      if (roomsError) throw roomsError;
+
+      const roomsWithMessages = await Promise.all(
+        roomsData.map(async (room) => {
+          const { data: messages, error: messagesError } = await supabase
+            .from("messages")
+            .select(`
+              id,
+              text,
+              created_at,
+              user_id,
+              profiles!inner(name)
+            `)
+            .eq("room_id", room.id)
+            .order("created_at", { ascending: true });
+
+          if (messagesError) throw messagesError;
+
+          const formattedMessages: Message[] = messages.map((msg: any) => ({
+            id: msg.id,
+            text: msg.text,
+            sender: msg.profiles.name,
+            timestamp: new Date(msg.created_at).getTime(),
+            roomId: room.id,
+          }));
+
+          return {
+            id: room.id,
+            name: room.name,
+            code: room.code,
+            createdAt: new Date(room.created_at).getTime(),
+            messages: formattedMessages,
+          };
+        })
+      );
+
+      setRooms(roomsWithMessages);
+    } catch (error) {
+      console.error("Error fetching rooms:", error);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [user]);
+
+  useEffect(() => {
+    if (user) {
+      fetchRooms();
+    } else {
+      setRooms([]);
+    }
+  }, [user, fetchRooms]);
+
+  useEffect(() => {
+    if (!user) return;
+
+    const channel = supabase
+      .channel("room-changes")
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "messages",
+        },
+        () => {
+          fetchRooms();
+        }
+      )
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "room_members",
+        },
+        () => {
+          fetchRooms();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [user, fetchRooms]);
 
   const createRoom = useCallback(
     async (name: string): Promise<Room> => {
+      if (!user) throw new Error("User not authenticated");
+
       try {
-        const room = await createRoomMutation.mutateAsync({ name });
-        await refetchRooms();
-        return room;
+        const code = generateCode();
+
+        const { data: room, error: roomError } = await supabase
+          .from("rooms")
+          .insert({
+            name,
+            code,
+            created_by: user.id,
+          })
+          .select()
+          .single();
+
+        if (roomError) throw roomError;
+
+        const { error: memberError } = await supabase
+          .from("room_members")
+          .insert({
+            room_id: room.id,
+            user_id: user.id,
+          });
+
+        if (memberError) throw memberError;
+
+        const newRoom: Room = {
+          id: room.id,
+          name: room.name,
+          code: room.code,
+          createdAt: new Date(room.created_at).getTime(),
+          messages: [],
+        };
+
+        await fetchRooms();
+        return newRoom;
       } catch (error) {
         console.error("Create room error:", error);
         Alert.alert("Error", "Failed to create room");
         throw error;
       }
     },
-    [createRoomMutation, refetchRooms]
+    [user, fetchRooms]
   );
 
   const joinRoom = useCallback(
     async (code: string): Promise<Room | null> => {
+      if (!user) throw new Error("User not authenticated");
+
       try {
-        const room = await joinRoomMutation.mutateAsync({ code });
-        await refetchRooms();
-        return room;
+        const { data: room, error: roomError } = await supabase
+          .from("rooms")
+          .select("*")
+          .eq("code", code.toUpperCase())
+          .single();
+
+        if (roomError || !room) {
+          Alert.alert("Error", "Room not found");
+          return null;
+        }
+
+        const { data: existingMember } = await supabase
+          .from("room_members")
+          .select("*")
+          .eq("room_id", room.id)
+          .eq("user_id", user.id)
+          .single();
+
+        if (!existingMember) {
+          const { error: memberError } = await supabase
+            .from("room_members")
+            .insert({
+              room_id: room.id,
+              user_id: user.id,
+            });
+
+          if (memberError) throw memberError;
+        }
+
+        await fetchRooms();
+
+        return {
+          id: room.id,
+          name: room.name,
+          code: room.code,
+          createdAt: new Date(room.created_at).getTime(),
+          messages: [],
+        };
       } catch (error) {
         console.error("Join room error:", error);
-        Alert.alert("Error", "Room not found");
+        Alert.alert("Error", "Failed to join room");
         return null;
       }
     },
-    [joinRoomMutation, refetchRooms]
+    [user, fetchRooms]
   );
 
   const sendMessage = useCallback(
@@ -52,27 +230,37 @@ export const [ChatProvider, useChat] = createContextHook(() => {
       if (!user) return;
 
       try {
-        await sendMessageMutation.mutateAsync({ roomId, text });
-        await refetchRooms();
+        const { error } = await supabase.from("messages").insert({
+          room_id: roomId,
+          user_id: user.id,
+          text,
+        });
+
+        if (error) throw error;
+
+        await fetchRooms();
       } catch (error) {
         console.error("Send message error:", error);
         Alert.alert("Error", "Failed to send message");
       }
     },
-    [user, sendMessageMutation, refetchRooms]
+    [user, fetchRooms]
   );
 
   const deleteRoom = useCallback(
     async (roomId: string) => {
       try {
-        await deleteRoomMutation.mutateAsync({ roomId });
-        await refetchRooms();
+        const { error } = await supabase.from("rooms").delete().eq("id", roomId);
+
+        if (error) throw error;
+
+        await fetchRooms();
       } catch (error) {
         console.error("Delete room error:", error);
         Alert.alert("Error", "Failed to delete room");
       }
     },
-    [deleteRoomMutation, refetchRooms]
+    [fetchRooms]
   );
 
   return useMemo(
@@ -84,17 +272,8 @@ export const [ChatProvider, useChat] = createContextHook(() => {
       joinRoom,
       sendMessage,
       deleteRoom,
-      refetchRooms,
+      refetchRooms: fetchRooms,
     }),
-    [
-      rooms,
-      user,
-      isLoading,
-      createRoom,
-      joinRoom,
-      sendMessage,
-      deleteRoom,
-      refetchRooms,
-    ]
+    [rooms, user, isLoading, createRoom, joinRoom, sendMessage, deleteRoom, fetchRooms]
   );
 });

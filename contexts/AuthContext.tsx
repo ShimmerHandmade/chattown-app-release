@@ -1,113 +1,239 @@
 import createContextHook from "@nkzw/create-context-hook";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState, useMemo } from "react";
 import { User } from "@/types/chat";
-import { trpc } from "@/lib/trpc";
-import { setSession, clearSession, getSession } from "@/lib/trpc";
+import { supabase } from "@/lib/supabase";
 import { Alert } from "react-native";
+import { Session } from "@supabase/supabase-js";
 
 export const [AuthProvider, useAuth] = createContextHook(() => {
   const [user, setUser] = useState<User | null>(null);
+  const [session, setSession] = useState<Session | null>(null);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
 
-  const { data: meData, refetch: refetchMe } = trpc.auth.me.useQuery(undefined, {
-    enabled: false,
-  });
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setSession(session);
+      if (session?.user) {
+        loadUserProfile(session.user.id);
+      } else {
+        setIsLoading(false);
+      }
+    });
 
-  const loginMutation = trpc.auth.login.useMutation();
-  const signupMutation = trpc.auth.signup.useMutation();
-  const logoutMutation = trpc.auth.logout.useMutation();
-  const deleteAccountMutation = trpc.auth.deleteAccount.useMutation();
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, session) => {
+      setSession(session);
+      if (session?.user) {
+        loadUserProfile(session.user.id);
+      } else {
+        setUser(null);
+        setIsAuthenticated(false);
+        setIsLoading(false);
+      }
+    });
 
-  const loadAuth = useCallback(async () => {
+    return () => subscription.unsubscribe();
+  }, []);
+
+  const loadUserProfile = async (userId: string) => {
     try {
-      const sessionId = await getSession();
-      if (sessionId) {
-        const result = await refetchMe();
-        if (result.data) {
-          setUser(result.data);
-          setIsAuthenticated(true);
-        }
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("*")
+        .eq("id", userId)
+        .single();
+
+      if (error) throw error;
+
+      if (data) {
+        const profile = data as {
+          id: string;
+          email: string;
+          name: string;
+          bio: string;
+          avatar_color: string;
+        };
+        setUser({
+          id: profile.id,
+          email: profile.email,
+          name: profile.name,
+          bio: profile.bio,
+          avatarColor: profile.avatar_color,
+        });
+        setIsAuthenticated(true);
       }
     } catch (error) {
-      console.error("Error loading auth:", error);
-      await clearSession();
+      console.error("Error loading profile:", error);
     } finally {
       setIsLoading(false);
     }
-  }, [refetchMe]);
+  };
 
-  useEffect(() => {
-    loadAuth();
-  }, [loadAuth]);
+  const signup = useCallback(async (email: string, password: string, name: string) => {
+    try {
+      const { data, error } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          data: {
+            name,
+          },
+        },
+      });
 
-  const login = useCallback(
-    async (email: string, password: string) => {
-      try {
-        const result = await loginMutation.mutateAsync({ email, password });
-        await setSession(result.sessionId);
-        setUser(result.user);
-        setIsAuthenticated(true);
-      } catch (error) {
-        console.error("Login error:", error);
-        Alert.alert("Error", "Invalid email or password");
-        throw error;
+      if (error) throw error;
+
+      if (data.user) {
+        await loadUserProfile(data.user.id);
       }
-    },
-    [loginMutation]
-  );
+    } catch (error: any) {
+      console.error("Signup error:", error);
+      Alert.alert("Error", error.message || "Failed to create account");
+      throw error;
+    }
+  }, []);
 
-  const signup = useCallback(
-    async (email: string, password: string, name: string) => {
-      try {
-        const result = await signupMutation.mutateAsync({
-          email,
-          password,
-          name,
-        });
-        await setSession(result.sessionId);
-        setUser(result.user);
-        setIsAuthenticated(true);
-      } catch (error) {
-        console.error("Signup error:", error);
-        Alert.alert("Error", "Email already in use");
-        throw error;
+  const login = useCallback(async (email: string, password: string) => {
+    try {
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
+
+      if (error) throw error;
+
+      if (data.user) {
+        await loadUserProfile(data.user.id);
       }
-    },
-    [signupMutation]
-  );
+    } catch (error: any) {
+      console.error("Login error:", error);
+      Alert.alert("Error", error.message || "Invalid email or password");
+      throw error;
+    }
+  }, []);
 
   const logout = useCallback(async () => {
     try {
-      await logoutMutation.mutateAsync();
-    } catch (error) {
-      console.error("Logout error:", error);
-    } finally {
-      await clearSession();
+      await supabase.auth.signOut();
       setUser(null);
       setIsAuthenticated(false);
+    } catch (error) {
+      console.error("Logout error:", error);
     }
-  }, [logoutMutation]);
+  }, []);
 
   const deleteAccount = useCallback(async () => {
     try {
-      await deleteAccountMutation.mutateAsync();
-      await clearSession();
+      if (!user) return;
+
+      const { error } = await supabase.rpc("delete_user");
+
+      if (error) throw error;
+
+      await supabase.auth.signOut();
       setUser(null);
       setIsAuthenticated(false);
-    } catch (error) {
+    } catch (error: any) {
       console.error("Delete account error:", error);
+      Alert.alert("Error", error.message || "Failed to delete account");
       throw error;
     }
-  }, [deleteAccountMutation]);
+  }, [user]);
 
-  return {
-    user,
-    isAuthenticated,
-    isLoading,
-    login,
-    signup,
-    logout,
-    deleteAccount,
-  };
+  const updateProfile = useCallback(
+    async (updates: { name?: string; bio?: string; avatarColor?: string }) => {
+      try {
+        if (!user) return;
+
+        const updateData: { name?: string; bio?: string; avatar_color?: string } =
+          {};
+        if (updates.name !== undefined) updateData.name = updates.name;
+        if (updates.bio !== undefined) updateData.bio = updates.bio;
+        if (updates.avatarColor !== undefined)
+          updateData.avatar_color = updates.avatarColor;
+
+        const { error } = await supabase
+          .from("profiles")
+          .update(updateData as any)
+          .eq("id", user.id);
+
+        if (error) throw error;
+
+        setUser({
+          ...user,
+          name: updates.name ?? user.name,
+          bio: updates.bio ?? user.bio,
+          avatarColor: updates.avatarColor ?? user.avatarColor,
+        });
+      } catch (error: any) {
+        console.error("Update profile error:", error);
+        Alert.alert("Error", error.message || "Failed to update profile");
+        throw error;
+      }
+    },
+    [user]
+  );
+
+  const requestPasswordReset = useCallback(async (email: string) => {
+    try {
+      const { error } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: 'myapp://reset-password',
+      });
+
+      if (error) throw error;
+
+      Alert.alert("Success", "Password reset email sent. Please check your inbox.");
+    } catch (error: any) {
+      console.error("Password reset error:", error);
+      Alert.alert("Error", error.message || "Failed to send reset email");
+      throw error;
+    }
+  }, []);
+
+  const resetPassword = useCallback(async (newPassword: string) => {
+    try {
+      const { error } = await supabase.auth.updateUser({
+        password: newPassword,
+      });
+
+      if (error) throw error;
+
+      Alert.alert("Success", "Password updated successfully");
+    } catch (error: any) {
+      console.error("Reset password error:", error);
+      Alert.alert("Error", error.message || "Failed to reset password");
+      throw error;
+    }
+  }, []);
+
+  return useMemo(
+    () => ({
+      user,
+      session,
+      isAuthenticated,
+      isLoading,
+      login,
+      signup,
+      logout,
+      deleteAccount,
+      updateProfile,
+      requestPasswordReset,
+      resetPassword,
+    }),
+    [
+      user,
+      session,
+      isAuthenticated,
+      isLoading,
+      login,
+      signup,
+      logout,
+      deleteAccount,
+      updateProfile,
+      requestPasswordReset,
+      resetPassword,
+    ]
+  );
 });

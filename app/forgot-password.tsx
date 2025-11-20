@@ -1,5 +1,5 @@
 import { router } from "expo-router";
-import { Mail, KeyRound } from "lucide-react-native";
+import { Mail } from "lucide-react-native";
 import { useState } from "react";
 import {
   View,
@@ -13,14 +13,13 @@ import {
   Alert,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { trpc } from "@/lib/trpc";
+import { useAuth } from "@/contexts/AuthContext";
 
 export default function ForgotPasswordScreen() {
   const [email, setEmail] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const insets = useSafeAreaInsets();
-
-  const forgotPasswordMutation = trpc.auth.forgotPassword.useMutation();
+  const { requestPasswordReset } = useAuth();
 
   const handleSubmit = async () => {
     if (!email.trim()) {
@@ -35,64 +34,10 @@ export default function ForgotPasswordScreen() {
 
     setIsLoading(true);
     try {
-      console.log("[ForgotPassword] Starting request with email:", email.trim());
-      
-      const result = await forgotPasswordMutation.mutateAsync({ email: email.trim() });
-      console.log("[ForgotPassword] Success! Result:", result);
-      
-      if (result.success) {
-        Alert.alert(
-          "Check Console",
-          result.message || "For this demo, your login credentials have been printed to the console. In production, these would be sent to your email.",
-          [
-            {
-              text: "OK",
-              onPress: () => router.back(),
-            },
-          ]
-        );
-      }
-    } catch (error: any) {
-      console.error("[ForgotPassword] Error occurred:", error);
-      console.error("[ForgotPassword] Error type:", error?.constructor?.name);
-      console.error("[ForgotPassword] Error shape:", error?.shape);
-      console.error("[ForgotPassword] Error data:", error?.data);
-      console.error("[ForgotPassword] Error message:", error?.message);
-      console.error("[ForgotPassword] Full error:", JSON.stringify(error, Object.getOwnPropertyNames(error)));
-      
-      let errorMessage = "Failed to process password reset request";
-      let errorTitle = "Error";
-      
-      const is404 = error?.message?.includes("404") || 
-                    error?.message?.includes("Not Found") || 
-                    error?.message?.includes("JSON Parse error");
-      
-      if (is404) {
-        errorTitle = "⚠️ Service Temporarily Unavailable";
-        errorMessage = "The password reset service is currently unavailable. This usually means the backend is still starting up or redeploying.\n\nPlease try one of these options:\n\n1. Wait 30-60 seconds and try again\n2. Use the Back button to sign in with your existing credentials\n3. Contact support if this persists\n\nTip: The backend may have recently been updated and needs time to fully restart.";
-      } else if (error?.message?.includes("Failed to fetch") || error?.message?.includes("Network request failed")) {
-        errorTitle = "Connection Error";
-        errorMessage = "Unable to connect to the server. Please check your internet connection and try again.";
-      } else if (error?.shape?.data?.zodError) {
-        errorMessage = "Please check your email format and try again.";
-      } else if (error?.shape?.message) {
-        errorMessage = error.shape.message;
-      } else if (error?.data?.message) {
-        errorMessage = error.data.message;
-      } else if (error?.message && !is404) {
-        errorMessage = error.message;
-      }
-      
-      Alert.alert(
-        errorTitle,
-        errorMessage,
-        [
-          {
-            text: "OK",
-            style: "default"
-          }
-        ]
-      );
+      await requestPasswordReset(email.trim());
+      router.back();
+    } catch (error) {
+      console.error("Password reset error:", error);
     } finally {
       setIsLoading(false);
     }
@@ -110,11 +55,11 @@ export default function ForgotPasswordScreen() {
           >
             <View style={styles.header}>
               <View style={styles.iconContainer}>
-                <KeyRound size={60} color="#007AFF" strokeWidth={1.5} />
+                <Mail size={60} color="#007AFF" strokeWidth={1.5} />
               </View>
               <Text style={styles.title}>Forgot Password?</Text>
               <Text style={styles.subtitle}>
-                Enter your email address and we&apos;ll send you your login credentials
+                Enter your email address and we&apos;ll send you a password reset link
               </Text>
             </View>
 
@@ -142,7 +87,7 @@ export default function ForgotPasswordScreen() {
                 disabled={isLoading}
               >
                 <Text style={styles.submitButtonText}>
-                  {isLoading ? "Sending..." : "Send Reset Instructions"}
+                  {isLoading ? "Sending..." : "Send Reset Link"}
                 </Text>
               </TouchableOpacity>
 

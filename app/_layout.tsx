@@ -6,7 +6,6 @@ import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import { ChatProvider } from "@/contexts/ChatContext";
 import { NotificationProvider } from "@/contexts/NotificationContext";
-import { trpc, trpcClient } from "@/lib/trpc";
 import { StyleSheet } from "react-native";
 
 SplashScreen.preventAutoHideAsync();
@@ -48,17 +47,15 @@ export default function RootLayout() {
 
   return (
     <QueryClientProvider client={queryClient}>
-      <trpc.Provider client={trpcClient} queryClient={queryClient}>
-        <AuthProvider>
-          <NotificationProvider>
-            <ChatProvider>
-              <GestureHandlerRootView style={styles.gestureHandler}>
-                <RootLayoutNav />
-              </GestureHandlerRootView>
-            </ChatProvider>
-          </NotificationProvider>
-        </AuthProvider>
-      </trpc.Provider>
+      <AuthProvider>
+        <NotificationProvider>
+          <ChatProvider>
+            <GestureHandlerRootView style={styles.gestureHandler}>
+              <RootLayoutNav />
+            </GestureHandlerRootView>
+          </ChatProvider>
+        </NotificationProvider>
+      </AuthProvider>
     </QueryClientProvider>
   );
 }
