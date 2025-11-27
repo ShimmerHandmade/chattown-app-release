@@ -1,7 +1,7 @@
 import { useChat } from "@/contexts/ChatContext";
 import { router, Stack, useLocalSearchParams } from "expo-router";
 import { Send, Copy, ArrowLeft, Share2, User, Users, X } from "lucide-react-native";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import ProfileEditModal from "@/components/ProfileEditModal";
 import {
   View,
@@ -17,7 +17,14 @@ import {
 } from "react-native";
 import * as Clipboard from "expo-clipboard";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { trpc } from "@/lib/trpc";
+import { supabase } from "@/lib/supabase";
+
+type Member = {
+  id: string;
+  name: string;
+  email: string;
+  avatarColor: string;
+};
 
 export default function RoomScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -25,16 +32,60 @@ export default function RoomScreen() {
   const [message, setMessage] = useState("");
   const [showProfileModal, setShowProfileModal] = useState(false);
   const [showMembersModal, setShowMembersModal] = useState(false);
+  const [members, setMembers] = useState<Member[]>([]);
   const flatListRef = useRef<FlatList>(null);
 
-  const { data: members = [], refetch: refetchMembers } = trpc.rooms.members.useQuery(
-    { roomId: id || "" },
-    { enabled: !!id }
-  );
-  
-  const removeUserMutation = trpc.rooms.removeUser.useMutation();
-
   const room = rooms.find((r) => r.id === id);
+
+  const fetchMembers = useCallback(async () => {
+    if (!id) return;
+
+    try {
+      const { data, error } = await supabase
+        .from("room_members")
+        .select(`
+          user_id,
+          profiles!inner(
+            id,
+            name,
+            email,
+            avatar_color
+          )
+        `)
+        .eq("room_id", id);
+
+      if (error) throw error;
+
+      const formattedMembers: Member[] = data.map((item: any) => ({
+        id: item.profiles.id,
+        name: item.profiles.name,
+        email: item.profiles.email,
+        avatarColor: item.profiles.avatar_color,
+      }));
+
+      setMembers(formattedMembers);
+    } catch (error) {
+      console.error("Error fetching members:", error);
+      Alert.alert("Error", "Failed to load room members");
+    }
+  }, [id]);
+
+  const removeUser = async (userId: string) => {
+    if (!id) return;
+
+    try {
+      const { error } = await supabase
+        .from("room_members")
+        .delete()
+        .eq("room_id", id)
+        .eq("user_id", userId);
+
+      if (error) throw error;
+    } catch (error) {
+      console.error("Error removing user:", error);
+      throw error;
+    }
+  };
 
   useEffect(() => {
     if (room && room.messages.length > 0) {
@@ -43,6 +94,12 @@ export default function RoomScreen() {
       }, 100);
     }
   }, [room, room?.messages.length]);
+
+  useEffect(() => {
+    if (showMembersModal) {
+      fetchMembers();
+    }
+  }, [showMembersModal, id, fetchMembers]);
 
   if (!room) {
     return (
@@ -105,7 +162,6 @@ export default function RoomScreen() {
               <TouchableOpacity
                 onPress={() => {
                   setShowMembersModal(true);
-                  refetchMembers();
                 }}
                 style={styles.headerButton}
               >
@@ -290,17 +346,14 @@ export default function RoomScreen() {
                                 style: "destructive",
                                 onPress: async () => {
                                   try {
-                                    await removeUserMutation.mutateAsync({
-                                      roomId: id || "",
-                                      userId: item.id,
-                                    });
-                                    await refetchMembers();
+                                    await removeUser(item.id);
+                                    await fetchMembers();
                                     await refetchRooms();
                                     Alert.alert(
                                       "Success",
                                       `${item.name} has been removed from the room`
                                     );
-                                  } catch (error) {
+                                  } catch {
                                     Alert.alert(
                                       "Error",
                                       "Failed to remove user"
