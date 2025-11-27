@@ -131,7 +131,9 @@ export const [ChatProvider, useChat] = createContextHook(() => {
       if (!user) throw new Error("User not authenticated");
 
       try {
+        console.log("[ChatContext] Creating room:", { name, userId: user.id });
         const code = generateCode();
+        console.log("[ChatContext] Generated code:", code);
 
         const { data: room, error: roomError } = await supabase
           .from("rooms")
@@ -143,7 +145,12 @@ export const [ChatProvider, useChat] = createContextHook(() => {
           .select()
           .single();
 
-        if (roomError) throw roomError;
+        if (roomError) {
+          console.error("[ChatContext] Room insert error:", JSON.stringify(roomError, null, 2));
+          throw roomError;
+        }
+
+        console.log("[ChatContext] Room created:", room.id);
 
         const { error: memberError } = await supabase
           .from("room_members")
@@ -152,7 +159,12 @@ export const [ChatProvider, useChat] = createContextHook(() => {
             user_id: user.id,
           });
 
-        if (memberError) throw memberError;
+        if (memberError) {
+          console.error("[ChatContext] Member insert error:", JSON.stringify(memberError, null, 2));
+          throw memberError;
+        }
+
+        console.log("[ChatContext] Member added successfully");
 
         const newRoom: Room = {
           id: room.id,
@@ -164,9 +176,21 @@ export const [ChatProvider, useChat] = createContextHook(() => {
 
         await fetchRooms();
         return newRoom;
-      } catch (error) {
-        console.error("Create room error:", error);
-        Alert.alert("Error", "Failed to create room");
+      } catch (error: any) {
+        console.error("[ChatContext] Create room error:", error);
+        console.error("[ChatContext] Error details:", {
+          message: error?.message,
+          code: error?.code,
+          details: error?.details,
+          hint: error?.hint,
+        });
+        
+        let errorMessage = "Failed to create room";
+        if (error?.message) {
+          errorMessage += ": " + error.message;
+        }
+        
+        Alert.alert("Error", errorMessage);
         throw error;
       }
     },
