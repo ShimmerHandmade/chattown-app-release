@@ -1,7 +1,7 @@
 import createContextHook from "@nkzw/create-context-hook";
 import { useEffect, useMemo, useRef, useState } from "react";
 import * as Notifications from "expo-notifications";
-import { Platform, Alert } from "react-native";
+import { Platform } from "react-native";
 import Constants from "expo-constants";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/lib/supabase";
@@ -43,11 +43,12 @@ export const [NotificationProvider, useNotifications] = createContextHook(() => 
         return undefined;
       }
 
-      let projectId = Constants.expoConfig?.extra?.eas?.projectId;
+      const projectId = Constants.expoConfig?.extra?.eas?.projectId;
       
       if (!projectId) {
-        projectId = "p03ynwm0kjgdsyleu570j";
-        console.log("Using fallback projectId:", projectId);
+        console.log("No EAS project ID configured, skipping push token registration");
+        console.log("To enable push notifications, configure EAS project ID in app.json");
+        return undefined;
       }
 
       const token = await Notifications.getExpoPushTokenAsync({
@@ -58,7 +59,6 @@ export const [NotificationProvider, useNotifications] = createContextHook(() => 
       return token.data;
     } catch (error) {
       console.error("Error getting push token:", error);
-      Alert.alert("Error", "Failed to register for push notifications");
       return undefined;
     }
   }
@@ -66,45 +66,66 @@ export const [NotificationProvider, useNotifications] = createContextHook(() => 
   useEffect(() => {
     if (!user) return;
 
-    registerForPushNotificationsAsync().then(async (token) => {
-      if (token) {
-        setExpoPushToken(token);
-        try {
-          await supabase.from("push_tokens").upsert({
-            user_id: user.id,
-            token,
-          });
-          console.log("Token registered with backend");
-        } catch (error) {
-          console.error("Failed to register token with backend:", error);
-        }
-      }
-    });
+    let isMounted = true;
 
-    notificationListener.current =
-      Notifications.addNotificationReceivedListener(
-      (notification) => {
-        console.log("Notification received:", notification);
-      }
-    );
-
-    responseListener.current = Notifications.addNotificationResponseReceivedListener(
-      (response) => {
-        console.log("Notification tapped:", response);
-        const data = response.notification.request.content.data;
+    const setupNotifications = async () => {
+      try {
+        const token = await registerForPushNotificationsAsync();
         
-        if (data.roomId && data.type === "new_message") {
-          router.push(`/room/${data.roomId}`);
+        if (!isMounted) return;
+        
+        if (token) {
+          setExpoPushToken(token);
+          try {
+            await supabase.from("push_tokens").upsert({
+              user_id: user.id,
+              token,
+            });
+            console.log("Token registered with backend");
+          } catch (error) {
+            console.error("Failed to register token with backend:", error);
+          }
         }
+      } catch (error) {
+        console.error("Error in notification setup:", error);
       }
-    );
+    };
+
+    setupNotifications();
+
+    try {
+      notificationListener.current =
+        Notifications.addNotificationReceivedListener(
+        (notification) => {
+          console.log("Notification received:", notification);
+        }
+      );
+
+      responseListener.current = Notifications.addNotificationResponseReceivedListener(
+        (response) => {
+          console.log("Notification tapped:", response);
+          const data = response.notification.request.content.data;
+          
+          if (data.roomId && data.type === "new_message") {
+            router.push(`/room/${data.roomId}`);
+          }
+        }
+      );
+    } catch (error) {
+      console.error("Error setting up notification listeners:", error);
+    }
 
     return () => {
-      if (notificationListener.current) {
-        notificationListener.current.remove();
-      }
-      if (responseListener.current) {
-        responseListener.current.remove();
+      isMounted = false;
+      try {
+        if (notificationListener.current) {
+          notificationListener.current.remove();
+        }
+        if (responseListener.current) {
+          responseListener.current.remove();
+        }
+      } catch (error) {
+        console.error("Error removing notification listeners:", error);
       }
     };
   }, [user]);
