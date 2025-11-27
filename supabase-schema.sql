@@ -1,9 +1,19 @@
--- Enable Row Level Security
-ALTER TABLE IF EXISTS profiles ENABLE ROW LEVEL SECURITY;
-ALTER TABLE IF EXISTS rooms ENABLE ROW LEVEL SECURITY;
-ALTER TABLE IF EXISTS room_members ENABLE ROW LEVEL SECURITY;
-ALTER TABLE IF EXISTS messages ENABLE ROW LEVEL SECURITY;
-ALTER TABLE IF EXISTS push_tokens ENABLE ROW LEVEL SECURITY;
+-- Drop existing policies first to avoid conflicts
+DROP POLICY IF EXISTS "Users can view all profiles" ON profiles;
+DROP POLICY IF EXISTS "Users can update own profile" ON profiles;
+DROP POLICY IF EXISTS "Users can insert own profile" ON profiles;
+DROP POLICY IF EXISTS "Users can view rooms they are members of" ON rooms;
+DROP POLICY IF EXISTS "Users can create rooms" ON rooms;
+DROP POLICY IF EXISTS "Room creators can delete their rooms" ON rooms;
+DROP POLICY IF EXISTS "Users can view room members of their rooms" ON room_members;
+DROP POLICY IF EXISTS "Users can join rooms" ON room_members;
+DROP POLICY IF EXISTS "Users can leave rooms" ON room_members;
+DROP POLICY IF EXISTS "Room creators can remove members" ON room_members;
+DROP POLICY IF EXISTS "Users can view messages in their rooms" ON messages;
+DROP POLICY IF EXISTS "Users can send messages to their rooms" ON messages;
+DROP POLICY IF EXISTS "Users can view own push tokens" ON push_tokens;
+DROP POLICY IF EXISTS "Users can insert own push tokens" ON push_tokens;
+DROP POLICY IF EXISTS "Users can delete own push tokens" ON push_tokens;
 
 -- Create profiles table
 CREATE TABLE IF NOT EXISTS profiles (
@@ -58,63 +68,118 @@ CREATE INDEX IF NOT EXISTS idx_messages_room_id ON messages(room_id);
 CREATE INDEX IF NOT EXISTS idx_messages_created_at ON messages(created_at);
 CREATE INDEX IF NOT EXISTS idx_push_tokens_user_id ON push_tokens(user_id);
 
+-- Enable Row Level Security
+ALTER TABLE profiles ENABLE ROW LEVEL SECURITY;
+ALTER TABLE rooms ENABLE ROW LEVEL SECURITY;
+ALTER TABLE room_members ENABLE ROW LEVEL SECURITY;
+ALTER TABLE messages ENABLE ROW LEVEL SECURITY;
+ALTER TABLE push_tokens ENABLE ROW LEVEL SECURITY;
+
 -- RLS Policies for profiles
-CREATE POLICY "Users can view all profiles" ON profiles FOR SELECT USING (true);
-CREATE POLICY "Users can update own profile" ON profiles FOR UPDATE USING (auth.uid() = id);
-CREATE POLICY "Users can insert own profile" ON profiles FOR INSERT WITH CHECK (auth.uid() = id);
+CREATE POLICY "Users can view all profiles" ON profiles 
+  FOR SELECT 
+  USING (true);
+
+CREATE POLICY "Users can update own profile" ON profiles 
+  FOR UPDATE 
+  USING (auth.uid() = id);
+
+CREATE POLICY "Users can insert own profile" ON profiles 
+  FOR INSERT 
+  WITH CHECK (auth.uid() = id);
 
 -- RLS Policies for rooms
-CREATE POLICY "Users can view rooms they are members of" ON rooms FOR SELECT USING (
-  EXISTS (
-    SELECT 1 FROM room_members
-    WHERE room_members.room_id = rooms.id
-    AND room_members.user_id = auth.uid()
-  )
-);
-CREATE POLICY "Users can create rooms" ON rooms FOR INSERT WITH CHECK (auth.uid() = created_by);
-CREATE POLICY "Room creators can delete their rooms" ON rooms FOR DELETE USING (auth.uid() = created_by);
+-- Allow authenticated users to view rooms they created OR are members of
+CREATE POLICY "Users can view rooms they are members of" ON rooms 
+  FOR SELECT 
+  USING (
+    auth.uid() = created_by
+    OR EXISTS (
+      SELECT 1 FROM room_members
+      WHERE room_members.room_id = rooms.id
+      AND room_members.user_id = auth.uid()
+    )
+  );
+
+CREATE POLICY "Users can create rooms" ON rooms 
+  FOR INSERT 
+  WITH CHECK (auth.uid() = created_by);
+
+CREATE POLICY "Room creators can delete their rooms" ON rooms 
+  FOR DELETE 
+  USING (auth.uid() = created_by);
 
 -- RLS Policies for room_members
-CREATE POLICY "Users can view room members of their rooms" ON room_members FOR SELECT USING (
-  EXISTS (
-    SELECT 1 FROM room_members rm
-    WHERE rm.room_id = room_members.room_id
-    AND rm.user_id = auth.uid()
-  )
-);
-CREATE POLICY "Users can join rooms" ON room_members FOR INSERT WITH CHECK (auth.uid() = user_id);
-CREATE POLICY "Users can leave rooms" ON room_members FOR DELETE USING (auth.uid() = user_id);
-CREATE POLICY "Room creators can remove members" ON room_members FOR DELETE USING (
-  EXISTS (
-    SELECT 1 FROM rooms
-    WHERE rooms.id = room_members.room_id
-    AND rooms.created_by = auth.uid()
-  )
-);
+-- Allow users to view members of rooms they belong to
+CREATE POLICY "Users can view room members of their rooms" ON room_members 
+  FOR SELECT 
+  USING (
+    EXISTS (
+      SELECT 1 FROM room_members rm
+      WHERE rm.room_id = room_members.room_id
+      AND rm.user_id = auth.uid()
+    )
+    OR EXISTS (
+      SELECT 1 FROM rooms
+      WHERE rooms.id = room_members.room_id
+      AND rooms.created_by = auth.uid()
+    )
+  );
+
+CREATE POLICY "Users can join rooms" ON room_members 
+  FOR INSERT 
+  WITH CHECK (auth.uid() = user_id);
+
+CREATE POLICY "Users can leave rooms" ON room_members 
+  FOR DELETE 
+  USING (auth.uid() = user_id);
+
+CREATE POLICY "Room creators can remove members" ON room_members 
+  FOR DELETE 
+  USING (
+    EXISTS (
+      SELECT 1 FROM rooms
+      WHERE rooms.id = room_members.room_id
+      AND rooms.created_by = auth.uid()
+    )
+  );
 
 -- RLS Policies for messages
-CREATE POLICY "Users can view messages in their rooms" ON messages FOR SELECT USING (
-  EXISTS (
-    SELECT 1 FROM room_members
-    WHERE room_members.room_id = messages.room_id
-    AND room_members.user_id = auth.uid()
-  )
-);
-CREATE POLICY "Users can send messages to their rooms" ON messages FOR INSERT WITH CHECK (
-  auth.uid() = user_id
-  AND EXISTS (
-    SELECT 1 FROM room_members
-    WHERE room_members.room_id = messages.room_id
-    AND room_members.user_id = auth.uid()
-  )
-);
+CREATE POLICY "Users can view messages in their rooms" ON messages 
+  FOR SELECT 
+  USING (
+    EXISTS (
+      SELECT 1 FROM room_members
+      WHERE room_members.room_id = messages.room_id
+      AND room_members.user_id = auth.uid()
+    )
+  );
+
+CREATE POLICY "Users can send messages to their rooms" ON messages 
+  FOR INSERT 
+  WITH CHECK (
+    auth.uid() = user_id
+    AND EXISTS (
+      SELECT 1 FROM room_members
+      WHERE room_members.room_id = messages.room_id
+      AND room_members.user_id = auth.uid()
+    )
+  );
 
 -- RLS Policies for push_tokens
-CREATE POLICY "Users can view own push tokens" ON push_tokens FOR SELECT USING (auth.uid() = user_id);
-CREATE POLICY "Users can insert own push tokens" ON push_tokens FOR INSERT WITH CHECK (auth.uid() = user_id);
-CREATE POLICY "Users can delete own push tokens" ON push_tokens FOR DELETE USING (auth.uid() = user_id);
+CREATE POLICY "Users can view own push tokens" ON push_tokens 
+  FOR SELECT 
+  USING (auth.uid() = user_id);
 
--- Function to handle user deletion
+CREATE POLICY "Users can insert own push tokens" ON push_tokens 
+  FOR INSERT 
+  WITH CHECK (auth.uid() = user_id);
+
+CREATE POLICY "Users can delete own push tokens" ON push_tokens 
+  FOR DELETE 
+  USING (auth.uid() = user_id);
+
+-- Function to handle new user creation
 CREATE OR REPLACE FUNCTION handle_new_user()
 RETURNS TRIGGER AS $$
 BEGIN
