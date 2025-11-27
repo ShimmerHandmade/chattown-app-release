@@ -39,13 +39,17 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
 
   const loadUserProfile = async (userId: string) => {
     try {
+      console.log('[AuthContext] Loading profile for user:', userId);
       const { data, error } = await supabase
         .from("profiles")
         .select("*")
         .eq("id", userId)
         .single();
 
-      if (error) throw error;
+      if (error) {
+        console.error('[AuthContext] Profile load error:', error);
+        throw error;
+      }
 
       if (data) {
         const profile = data as {
@@ -55,6 +59,7 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
           bio: string;
           avatar_color: string;
         };
+        console.log('[AuthContext] Profile loaded:', profile);
         setUser({
           id: profile.id,
           email: profile.email,
@@ -63,9 +68,10 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
           avatarColor: profile.avatar_color,
         });
         setIsAuthenticated(true);
+        console.log('[AuthContext] User authenticated');
       }
     } catch (error) {
-      console.error("Error loading profile:", error);
+      console.error("[AuthContext] Error loading profile:", error);
     } finally {
       setIsLoading(false);
     }
@@ -97,18 +103,23 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
 
   const login = useCallback(async (email: string, password: string) => {
     try {
+      console.log('[AuthContext] Attempting login for:', email);
       const { data, error } = await supabase.auth.signInWithPassword({
         email,
         password,
       });
 
-      if (error) throw error;
+      if (error) {
+        console.error('[AuthContext] Login auth error:', error);
+        throw error;
+      }
 
+      console.log('[AuthContext] Login successful, user:', data.user?.id);
       if (data.user) {
         await loadUserProfile(data.user.id);
       }
     } catch (error: any) {
-      console.error("Login error:", error);
+      console.error("[AuthContext] Login error:", error);
       Alert.alert("Error", error.message || "Invalid email or password");
       throw error;
     }

@@ -23,12 +23,16 @@ function RootLayoutNav() {
     const inAuthGroup = segments[0] === "auth";
     const inForgotPassword = segments[0] === "forgot-password";
 
+    console.log('[RootLayoutNav] Auth state:', { isAuthenticated, isLoading, segments });
+
     if (!isAuthenticated && !inAuthGroup && !inForgotPassword) {
+      console.log('[RootLayoutNav] Redirecting to auth');
       router.replace("/auth");
     } else if (isAuthenticated && (inAuthGroup || inForgotPassword)) {
+      console.log('[RootLayoutNav] Redirecting to home');
       router.replace("/");
     }
-  }, [isAuthenticated, isLoading, segments, router]);
+  }, [isAuthenticated, isLoading, segments]);
 
   return (
     <Stack screenOptions={{ headerBackTitle: "Back" }}>

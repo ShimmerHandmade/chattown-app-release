@@ -45,13 +45,16 @@ export default function AuthScreen() {
 
     try {
       if (isSignup) {
+        console.log('[AuthScreen] Attempting signup');
         await signup(email.trim(), password.trim(), name.trim());
+        console.log('[AuthScreen] Signup successful');
       } else {
+        console.log('[AuthScreen] Attempting login');
         await login(email.trim(), password.trim());
+        console.log('[AuthScreen] Login successful');
       }
-      router.replace("/");
-    } catch {
-      
+    } catch (error) {
+      console.error('[AuthScreen] Auth error:', error);
     }
   };
 
