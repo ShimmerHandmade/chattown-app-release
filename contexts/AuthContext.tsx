@@ -47,7 +47,47 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
         .single();
 
       if (error) {
-        console.error('[AuthContext] Profile load error:', error);
+        console.error('[AuthContext] Profile load error:', JSON.stringify(error, null, 2));
+        console.error('[AuthContext] Error code:', error.code);
+        console.error('[AuthContext] Error message:', error.message);
+        
+        if (error.code === 'PGRST116') {
+          console.log('[AuthContext] Profile not found, waiting for trigger to create it...');
+          await new Promise(resolve => setTimeout(resolve, 1000));
+          
+          const { data: retryData, error: retryError } = await supabase
+            .from("profiles")
+            .select("*")
+            .eq("id", userId)
+            .single();
+          
+          if (retryError) {
+            console.error('[AuthContext] Retry failed:', JSON.stringify(retryError, null, 2));
+            throw retryError;
+          }
+          
+          if (retryData) {
+            const profile = retryData as {
+              id: string;
+              email: string;
+              name: string;
+              bio: string;
+              avatar_color: string;
+            };
+            console.log('[AuthContext] Profile loaded after retry:', profile);
+            setUser({
+              id: profile.id,
+              email: profile.email,
+              name: profile.name,
+              bio: profile.bio,
+              avatarColor: profile.avatar_color,
+            });
+            setIsAuthenticated(true);
+            console.log('[AuthContext] User authenticated after retry');
+            return;
+          }
+        }
+        
         throw error;
       }
 
@@ -70,8 +110,9 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
         setIsAuthenticated(true);
         console.log('[AuthContext] User authenticated');
       }
-    } catch (error) {
-      console.error("[AuthContext] Error loading profile:", error);
+    } catch (error: any) {
+      console.error("[AuthContext] Error loading profile:", JSON.stringify(error, null, 2));
+      console.error("[AuthContext] Error details - message:", error?.message, "code:", error?.code);
     } finally {
       setIsLoading(false);
     }
