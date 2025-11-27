@@ -17,7 +17,7 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 
 export default function AuthScreen() {
-  const { login, signup } = useAuth();
+  const { login, signup, signInWithGoogle } = useAuth();
   const [isSignup, setIsSignup] = useState(false);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -163,6 +163,24 @@ export default function AuthScreen() {
                 </TouchableOpacity>
               )}
 
+              <View style={styles.dividerContainer}>
+                <View style={styles.divider} />
+                <Text style={styles.dividerText}>OR</Text>
+                <View style={styles.divider} />
+              </View>
+
+              <TouchableOpacity
+                style={styles.googleButton}
+                onPress={signInWithGoogle}
+              >
+                <View style={styles.googleIcon}>
+                  <Text style={styles.googleIconText}>G</Text>
+                </View>
+                <Text style={styles.googleButtonText}>
+                  Continue with Google
+                </Text>
+              </TouchableOpacity>
+
               <View style={styles.switchContainer}>
                 <Text style={styles.switchText}>
                   {isSignup
@@ -287,5 +305,50 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: "#007AFF",
     fontWeight: "500" as const,
+  },
+  dividerContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginVertical: 20,
+  },
+  divider: {
+    flex: 1,
+    height: 1,
+    backgroundColor: "#E5E5EA",
+  },
+  dividerText: {
+    marginHorizontal: 16,
+    fontSize: 14,
+    color: "#8E8E93",
+    fontWeight: "500" as const,
+  },
+  googleButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#FFF",
+    borderRadius: 16,
+    paddingVertical: 18,
+    borderWidth: 1,
+    borderColor: "#E5E5EA",
+    gap: 12,
+  },
+  googleIcon: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: "#4285F4",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  googleIconText: {
+    fontSize: 14,
+    fontWeight: "700" as const,
+    color: "#FFF",
+  },
+  googleButtonText: {
+    fontSize: 16,
+    fontWeight: "600" as const,
+    color: "#000",
   },
 });

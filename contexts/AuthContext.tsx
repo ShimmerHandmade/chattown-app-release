@@ -2,8 +2,12 @@ import createContextHook from "@nkzw/create-context-hook";
 import { useCallback, useEffect, useState, useMemo } from "react";
 import { User } from "@/types/chat";
 import { supabase } from "@/lib/supabase";
-import { Alert } from "react-native";
+import { Alert, Platform } from "react-native";
 import { Session } from "@supabase/supabase-js";
+import * as WebBrowser from "expo-web-browser";
+import * as Linking from "expo-linking";
+
+WebBrowser.maybeCompleteAuthSession();
 
 export const [AuthProvider, useAuth] = createContextHook(() => {
   const [user, setUser] = useState<User | null>(null);
@@ -273,6 +277,65 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
     }
   }, []);
 
+  const signInWithGoogle = useCallback(async () => {
+    try {
+      console.log('[AuthContext] Starting Google OAuth');
+      
+      const redirectUrl = Linking.createURL('/');
+      console.log('[AuthContext] Redirect URL:', redirectUrl);
+
+      const { data, error } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+          redirectTo: redirectUrl,
+          skipBrowserRedirect: Platform.OS !== 'web',
+        },
+      });
+
+      if (error) {
+        console.error('[AuthContext] OAuth error:', error);
+        throw error;
+      }
+
+      if (Platform.OS !== 'web' && data?.url) {
+        console.log('[AuthContext] Opening browser with URL');
+        const result = await WebBrowser.openAuthSessionAsync(
+          data.url,
+          redirectUrl
+        );
+
+        if (result.type === 'success') {
+          const url = result.url;
+          const parsedUrl = Linking.parse(url);
+          const accessToken = parsedUrl.queryParams?.access_token;
+          const refreshToken = parsedUrl.queryParams?.refresh_token;
+
+          if (accessToken && refreshToken) {
+            const { data: sessionData, error: sessionError } = await supabase.auth.setSession({
+              access_token: accessToken as string,
+              refresh_token: refreshToken as string,
+            });
+
+            if (sessionError) {
+              console.error('[AuthContext] Session error:', sessionError);
+              throw sessionError;
+            }
+
+            if (sessionData.user) {
+              await loadUserProfile(sessionData.user.id);
+            }
+          }
+        } else if (result.type === 'cancel') {
+          console.log('[AuthContext] User cancelled OAuth');
+        }
+      }
+    } catch (error: any) {
+      console.error('[AuthContext] Google sign-in error:', error);
+      Alert.alert('Error', error.message || 'Failed to sign in with Google');
+      throw error;
+    }
+  }, []);
+
   return useMemo(
     () => ({
       user,
@@ -286,6 +349,7 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
       updateProfile,
       requestPasswordReset,
       resetPassword,
+      signInWithGoogle,
     }),
     [
       user,
@@ -299,6 +363,7 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
       updateProfile,
       requestPasswordReset,
       resetPassword,
+      signInWithGoogle,
     ]
   );
 });
