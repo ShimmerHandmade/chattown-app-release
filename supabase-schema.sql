@@ -114,15 +114,14 @@ CREATE POLICY "Room creators can delete their rooms" ON rooms
 CREATE POLICY "Users can view room members of their rooms" ON room_members 
   FOR SELECT 
   USING (
-    EXISTS (
-      SELECT 1 FROM room_members rm
-      WHERE rm.room_id = room_members.room_id
-      AND rm.user_id = auth.uid()
+    user_id = auth.uid()
+    OR room_id IN (
+      SELECT rm.room_id FROM room_members rm
+      WHERE rm.user_id = auth.uid()
     )
-    OR EXISTS (
-      SELECT 1 FROM rooms
-      WHERE rooms.id = room_members.room_id
-      AND rooms.created_by = auth.uid()
+    OR room_id IN (
+      SELECT r.id FROM rooms r
+      WHERE r.created_by = auth.uid()
     )
   );
 

@@ -43,11 +43,11 @@ export const [NotificationProvider, useNotifications] = createContextHook(() => 
         return undefined;
       }
 
-      const projectId = Constants.expoConfig?.extra?.eas?.projectId;
+      let projectId = Constants.expoConfig?.extra?.eas?.projectId;
       
       if (!projectId) {
-        console.log("No projectId found in app.json");
-        return undefined;
+        projectId = "p03ynwm0kjgdsyleu570j";
+        console.log("Using fallback projectId:", projectId);
       }
 
       const token = await Notifications.getExpoPushTokenAsync({
