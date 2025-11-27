@@ -25,7 +25,10 @@ export const [ChatProvider, useChat] = createContextHook(() => {
         .select("room_id")
         .eq("user_id", user.id);
 
-      if (membersError) throw membersError;
+      if (membersError) {
+        console.error("Error fetching rooms:", JSON.stringify(membersError, null, 2));
+        throw membersError;
+      }
 
       const roomIds = roomMembers.map((rm) => rm.room_id);
 
@@ -40,7 +43,10 @@ export const [ChatProvider, useChat] = createContextHook(() => {
         .in("id", roomIds)
         .order("created_at", { ascending: false });
 
-      if (roomsError) throw roomsError;
+      if (roomsError) {
+        console.error("Error fetching rooms data:", JSON.stringify(roomsError, null, 2));
+        throw roomsError;
+      }
 
       const roomsWithMessages = await Promise.all(
         roomsData.map(async (room) => {
@@ -56,7 +62,10 @@ export const [ChatProvider, useChat] = createContextHook(() => {
             .eq("room_id", room.id)
             .order("created_at", { ascending: true });
 
-          if (messagesError) throw messagesError;
+          if (messagesError) {
+            console.error("Error fetching messages:", JSON.stringify(messagesError, null, 2));
+            throw messagesError;
+          }
 
           const formattedMessages: Message[] = messages.map((msg: any) => ({
             id: msg.id,
@@ -77,8 +86,14 @@ export const [ChatProvider, useChat] = createContextHook(() => {
       );
 
       setRooms(roomsWithMessages);
-    } catch (error) {
-      console.error("Error fetching rooms:", error);
+    } catch (error: any) {
+      console.error("Error fetching rooms:", JSON.stringify(error, null, 2));
+      console.error("Error details:", {
+        message: error?.message,
+        code: error?.code,
+        details: error?.details,
+        hint: error?.hint,
+      });
     } finally {
       setIsLoading(false);
     }
