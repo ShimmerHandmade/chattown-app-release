@@ -2,6 +2,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { router } from "expo-router";
 import { Mail, UserCircle2, AtSign, Lock } from "lucide-react-native";
 import { useState } from "react";
+import * as Notifications from "expo-notifications";
 import {
   View,
   Text,
@@ -52,6 +53,18 @@ export default function AuthScreen() {
         console.log('[AuthScreen] Attempting login');
         await login(email.trim(), password.trim());
         console.log('[AuthScreen] Login successful');
+      }
+      
+      if (Platform.OS !== 'web') {
+        console.log('[AuthScreen] Requesting push notification permissions');
+        const { status: existingStatus } = await Notifications.getPermissionsAsync();
+        
+        if (existingStatus !== 'granted') {
+          const { status } = await Notifications.requestPermissionsAsync();
+          console.log('[AuthScreen] Push notification permission status:', status);
+        } else {
+          console.log('[AuthScreen] Push notifications already granted');
+        }
       }
     } catch (error) {
       console.error('[AuthScreen] Auth error:', error);
