@@ -1,6 +1,6 @@
 import { useChat } from "@/contexts/ChatContext";
 import { router, Stack, useLocalSearchParams } from "expo-router";
-import { Send, Copy, ArrowLeft, Share2, User, Users, X } from "lucide-react-native";
+import { Send, Copy, ArrowLeft, Share2, User, Users, X, Smile } from "lucide-react-native";
 import { useCallback, useEffect, useRef, useState } from "react";
 import ProfileEditModal from "@/components/ProfileEditModal";
 import {
@@ -16,6 +16,7 @@ import {
   Modal,
 } from "react-native";
 import * as Clipboard from "expo-clipboard";
+import EmojiPicker from "rn-emoji-keyboard";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { supabase } from "@/lib/supabase";
 
@@ -32,6 +33,7 @@ export default function RoomScreen() {
   const [message, setMessage] = useState("");
   const [showProfileModal, setShowProfileModal] = useState(false);
   const [showMembersModal, setShowMembersModal] = useState(false);
+  const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [members, setMembers] = useState<Member[]>([]);
   const flatListRef = useRef<FlatList>(null);
 
@@ -258,6 +260,12 @@ export default function RoomScreen() {
 
         <SafeAreaView edges={["bottom"]} style={styles.inputContainer}>
           <View style={styles.inputWrapper}>
+            <TouchableOpacity
+              style={styles.emojiButton}
+              onPress={() => setShowEmojiPicker(!showEmojiPicker)}
+            >
+              <Smile size={24} color="#007AFF" />
+            </TouchableOpacity>
             <TextInput
               style={styles.input}
               placeholder="Type a message..."
@@ -282,6 +290,14 @@ export default function RoomScreen() {
               />
             </TouchableOpacity>
           </View>
+          <EmojiPicker
+            onEmojiSelected={(emoji) => {
+              setMessage((prev) => prev + emoji.emoji);
+            }}
+            open={showEmojiPicker}
+            onClose={() => setShowEmojiPicker(false)}
+            enableSearchBar
+          />
         </SafeAreaView>
       </KeyboardAvoidingView>
 
@@ -488,8 +504,16 @@ const styles = StyleSheet.create({
     alignItems: "flex-end",
     paddingHorizontal: 16,
     paddingVertical: 8,
-    gap: 12,
+    gap: 8,
   },
+  emojiButton: {
+    width: 36,
+    height: 36,
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 2,
+  },
+
   input: {
     flex: 1,
     backgroundColor: "#F2F2F7",
