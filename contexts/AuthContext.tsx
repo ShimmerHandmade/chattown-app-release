@@ -12,7 +12,19 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
+    supabase.auth.getSession().then(({ data: { session }, error }) => {
+      if (error) {
+        console.error('[AuthContext] Session error:', error);
+        if (error.message.includes('refresh_token_not_found') || error.message.includes('Invalid Refresh Token')) {
+          console.log('[AuthContext] Invalid refresh token, clearing session');
+          supabase.auth.signOut().catch(e => console.error('[AuthContext] Error signing out:', e));
+          setSession(null);
+          setUser(null);
+          setIsAuthenticated(false);
+          setIsLoading(false);
+          return;
+        }
+      }
       setSession(session);
       if (session?.user) {
         loadUserProfile(session.user.id);
@@ -24,6 +36,7 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_event, session) => {
+      console.log('[AuthContext] Auth state change:', _event);
       setSession(session);
       if (session?.user) {
         loadUserProfile(session.user.id);
