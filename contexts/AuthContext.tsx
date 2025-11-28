@@ -310,12 +310,21 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
         console.log('[AuthContext] Auth session result:', result);
 
         if (result.type === 'success' && result.url) {
+          console.log('[AuthContext] Full callback URL:', result.url);
+          
           const parsedUrl = Linking.parse(result.url);
           console.log('[AuthContext] Parsed URL:', parsedUrl);
           
-          const accessToken = parsedUrl.queryParams?.access_token;
-          const refreshToken = parsedUrl.queryParams?.refresh_token;
-          const errorDescription = parsedUrl.queryParams?.error_description;
+          const url = new URL(result.url);
+          const fragmentParams = new URLSearchParams(url.hash.substring(1));
+          const queryParams = new URLSearchParams(url.search);
+          
+          const accessToken = fragmentParams.get('access_token') || queryParams.get('access_token') || parsedUrl.queryParams?.access_token;
+          const refreshToken = fragmentParams.get('refresh_token') || queryParams.get('refresh_token') || parsedUrl.queryParams?.refresh_token;
+          const errorDescription = fragmentParams.get('error_description') || queryParams.get('error_description') || parsedUrl.queryParams?.error_description;
+
+          console.log('[AuthContext] Access token present:', !!accessToken);
+          console.log('[AuthContext] Refresh token present:', !!refreshToken);
 
           if (errorDescription) {
             console.error('[AuthContext] OAuth returned error:', errorDescription);
@@ -343,6 +352,8 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
             }
           } else {
             console.error('[AuthContext] No tokens in callback URL');
+            console.error('[AuthContext] URL hash:', url.hash);
+            console.error('[AuthContext] URL search:', url.search);
             Alert.alert('Authentication Failed', 'No authentication tokens received');
           }
         } else if (result.type === 'cancel') {
