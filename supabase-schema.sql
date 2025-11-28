@@ -89,7 +89,6 @@ CREATE POLICY "Users can insert own profile" ON profiles
   WITH CHECK (auth.uid() = id);
 
 -- RLS Policies for rooms
--- Allow authenticated users to view rooms they created OR are members of
 CREATE POLICY "Users can view rooms they are members of" ON rooms 
   FOR SELECT 
   USING (
@@ -110,7 +109,6 @@ CREATE POLICY "Room creators can delete their rooms" ON rooms
   USING (auth.uid() = created_by);
 
 -- RLS Policies for room_members
--- Allow users to view members of rooms they belong to
 CREATE POLICY "Users can view room members of their rooms" ON room_members 
   FOR SELECT 
   USING (
@@ -219,7 +217,6 @@ CREATE TRIGGER update_profiles_updated_at
 CREATE OR REPLACE FUNCTION delete_user()
 RETURNS void AS $$
 BEGIN
-  -- Delete the user from auth.users (cascades to profiles and all related data)
   DELETE FROM auth.users WHERE id = auth.uid();
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
