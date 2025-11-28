@@ -1,65 +1,65 @@
 {
-"expo": {
-  "name": "ChatTown",
-  "slug": "chattown",
-  "version": "1.0.1",
-  "orientation": "portrait",
-  "icon": "./assets/images/icon.png",
-  "scheme": "rork-app",
-  "userInterfaceStyle": "automatic",
-  "newArchEnabled": true,
-  "splash": {
-    "image": "./assets/images/splash-icon.png",
-    "resizeMode": "contain",
-    "backgroundColor": "#ffffff"
-  },
-  "ios": {
-    "supportsTablet": true,
-    "bundleIdentifier": "app.shimmer.chattown"
-  },
-  "android": {
-    "adaptiveIcon": {
-      "foregroundImage": "./assets/images/adaptive-icon.png",
+  "expo": {
+    "name": "ChatTown",
+    "slug": "chattown",
+    "version": "1.0.1",
+    "orientation": "portrait",
+    "icon": "./assets/images/icon.png",
+    "scheme": "rork-app",
+    "userInterfaceStyle": "automatic",
+    "newArchEnabled": true,
+    "splash": {
+      "image": "./assets/images/splash-icon.png",
+      "resizeMode": "contain",
       "backgroundColor": "#ffffff"
     },
-    "package": "app.shimmer.chattown",
-    "permissions": [
-      "android.permission.RECEIVE_BOOT_COMPLETED",
-      "android.permission.SCHEDULE_EXACT_ALARM"
-    ]
-  },
-  "web": {
-    "favicon": "./assets/images/favicon.png"
-  },
-  "plugins": [
-    [
-      "expo-router",
-      {
-        "origin": "https://rork.com/"
-      }
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "app.shimmer.chattown"
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/images/adaptive-icon.png",
+        "backgroundColor": "#ffffff"
+      },
+      "package": "app.shimmer.chattown",
+      "permissions": [
+        "android.permission.RECEIVE_BOOT_COMPLETED",
+        "android.permission.SCHEDULE_EXACT_ALARM"
+      ]
+    },
+    "web": {
+      "favicon": "./assets/images/favicon.png"
+    },
+    "plugins": [
+      [
+        "expo-router",
+        {
+          "origin": "https://rork.com/"
+        }
+      ],
+      "expo-font",
+      "expo-web-browser",
+      [
+        "expo-notifications",
+        {
+          "icon": "./local/assets/notification_icon.png",
+          "color": "#ffffff",
+          "defaultChannel": "default",
+          "sounds": [
+            "./local/assets/notification_sound.wav"
+          ],
+          "enableBackgroundRemoteNotifications": false
+        }
+      ]
     ],
-    "expo-font",
-    "expo-web-browser",
-    [
-      "expo-notifications",
-      {
-        "icon": "./local/assets/notification_icon.png",
-        "color": "#ffffff",
-        "defaultChannel": "default",
-        "sounds": [
-          "./local/assets/notification_sound.wav"
-        ],
-        "enableBackgroundRemoteNotifications": false
+    "experiments": {
+      "typedRoutes": true
+    },
+    "extra": {
+      "eas": {
+        "projectId": "a18c0cf1-7744-4966-8464-3716f34ea188"
       }
-    ]
-  ],
-  "experiments": {
-    "typedRoutes": true
-  },
-  "extra": {
-    "eas": {
-      "projectId": "a18c0cf1-7744-4966-8464-3716f34ea188"
     }
   }
-}
 }

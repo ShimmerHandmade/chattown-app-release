@@ -281,7 +281,7 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
     try {
       console.log('[AuthContext] Starting Google OAuth');
       
-      const redirectUrl = Linking.createURL('/');
+      const redirectUrl = Linking.createURL('auth/callback');
       console.log('[AuthContext] Redirect URL:', redirectUrl);
 
       const { data, error } = await supabase.auth.signInWithOAuth({
@@ -294,23 +294,35 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
 
       if (error) {
         console.error('[AuthContext] OAuth error:', error);
+        Alert.alert('Error', error.message || 'Failed to sign in with Google');
         throw error;
       }
 
       if (Platform.OS !== 'web' && data?.url) {
-        console.log('[AuthContext] Opening browser with URL');
+        console.log('[AuthContext] Opening browser with URL:', data.url);
         const result = await WebBrowser.openAuthSessionAsync(
           data.url,
           redirectUrl
         );
 
-        if (result.type === 'success') {
-          const url = result.url;
-          const parsedUrl = Linking.parse(url);
+        console.log('[AuthContext] Auth session result:', result);
+
+        if (result.type === 'success' && result.url) {
+          const parsedUrl = Linking.parse(result.url);
+          console.log('[AuthContext] Parsed URL:', parsedUrl);
+          
           const accessToken = parsedUrl.queryParams?.access_token;
           const refreshToken = parsedUrl.queryParams?.refresh_token;
+          const errorDescription = parsedUrl.queryParams?.error_description;
+
+          if (errorDescription) {
+            console.error('[AuthContext] OAuth returned error:', errorDescription);
+            Alert.alert('Authentication Failed', errorDescription as string);
+            return;
+          }
 
           if (accessToken && refreshToken) {
+            console.log('[AuthContext] Setting session with tokens');
             const { data: sessionData, error: sessionError } = await supabase.auth.setSession({
               access_token: accessToken as string,
               refresh_token: refreshToken as string,
@@ -318,15 +330,25 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
 
             if (sessionError) {
               console.error('[AuthContext] Session error:', sessionError);
+              Alert.alert('Error', sessionError.message || 'Failed to establish session');
               throw sessionError;
             }
 
             if (sessionData.user) {
+              console.log('[AuthContext] User authenticated, loading profile');
               await loadUserProfile(sessionData.user.id);
+              Alert.alert('Success', 'Signed in successfully!');
             }
+          } else {
+            console.error('[AuthContext] No tokens in callback URL');
+            Alert.alert('Authentication Failed', 'No authentication tokens received');
           }
         } else if (result.type === 'cancel') {
           console.log('[AuthContext] User cancelled OAuth');
+          Alert.alert('Cancelled', 'Sign in was cancelled');
+        } else if (result.type === 'dismiss') {
+          console.log('[AuthContext] User dismissed OAuth');
+          Alert.alert('Cancelled', 'Sign in was dismissed');
         }
       }
     } catch (error: any) {
