@@ -214,3 +214,12 @@ DROP TRIGGER IF EXISTS update_profiles_updated_at ON profiles;
 CREATE TRIGGER update_profiles_updated_at
   BEFORE UPDATE ON profiles
   FOR EACH ROW EXECUTE FUNCTION update_updated_at();
+
+-- Function to delete user account
+CREATE OR REPLACE FUNCTION delete_user()
+RETURNS void AS $
+BEGIN
+  -- Delete the user from auth.users (cascades to profiles and all related data)
+  DELETE FROM auth.users WHERE id = auth.uid();
+END;
+$ LANGUAGE plpgsql SECURITY DEFINER;
