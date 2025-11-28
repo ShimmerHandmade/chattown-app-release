@@ -217,9 +217,9 @@ CREATE TRIGGER update_profiles_updated_at
 
 -- Function to delete user account
 CREATE OR REPLACE FUNCTION delete_user()
-RETURNS void AS $
+RETURNS void AS $$
 BEGIN
   -- Delete the user from auth.users (cascades to profiles and all related data)
   DELETE FROM auth.users WHERE id = auth.uid();
 END;
-$ LANGUAGE plpgsql SECURITY DEFINER;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
