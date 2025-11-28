@@ -197,16 +197,29 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
     try {
       if (!user) return;
 
+      console.log('[AuthContext] Attempting to delete account');
       const { error } = await supabase.rpc("delete_user");
 
-      if (error) throw error;
+      if (error) {
+        console.error('[AuthContext] Delete account RPC error:', JSON.stringify(error, null, 2));
+        console.error('[AuthContext] Error code:', error.code);
+        console.error('[AuthContext] Error message:', error.message);
+        throw error;
+      }
 
+      console.log('[AuthContext] Account deleted, signing out');
       await supabase.auth.signOut();
       setUser(null);
       setIsAuthenticated(false);
     } catch (error: any) {
-      console.error("Delete account error:", error);
-      Alert.alert("Error", error.message || "Failed to delete account");
+      console.error('[AuthContext] Delete account error:', JSON.stringify(error, null, 2));
+      console.error('[AuthContext] Error details:', {
+        message: error?.message,
+        code: error?.code,
+        details: error?.details,
+        hint: error?.hint
+      });
+      Alert.alert("Error", error.message || error.details || "Failed to delete account");
       throw error;
     }
   }, [user]);
