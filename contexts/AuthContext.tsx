@@ -281,7 +281,9 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
     try {
       console.log('[AuthContext] Starting Google OAuth');
       
-      const redirectUrl = Linking.createURL('auth/callback');
+      const redirectUrl = Platform.OS === 'web' 
+        ? `${window.location.origin}/auth/callback`
+        : 'rork-app://auth/callback';
       console.log('[AuthContext] Redirect URL:', redirectUrl);
 
       const { data, error } = await supabase.auth.signInWithOAuth({
