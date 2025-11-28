@@ -78,7 +78,57 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
             .eq("id", userId)
             .single();
           
-          if (retryError) {
+          if (retryError && retryError.code === 'PGRST116') {
+            console.log('[AuthContext] Profile still not found after retry, creating manually...');
+            
+            const { data: { user } } = await supabase.auth.getUser();
+            if (!user) {
+              throw new Error('User session not found');
+            }
+            
+            const avatarColors = ['#FF6B6B', '#4ECDC4', '#45B7D1', '#FFA07A', '#98D8C8', '#F7DC6F', '#BB8FCE', '#85C1E2', '#F8B88B', '#A8E6CF'];
+            const randomColor = avatarColors[Math.floor(Math.random() * avatarColors.length)];
+            
+            const newProfile = {
+              id: userId,
+              email: user.email || '',
+              name: user.user_metadata?.name || user.user_metadata?.full_name || 'User',
+              bio: '',
+              avatar_color: randomColor,
+            };
+            
+            const { data: createdProfile, error: createError } = await supabase
+              .from('profiles')
+              .insert(newProfile)
+              .select()
+              .single();
+            
+            if (createError) {
+              console.error('[AuthContext] Failed to create profile:', createError);
+              throw createError;
+            }
+            
+            if (createdProfile) {
+              console.log('[AuthContext] Profile created manually:', createdProfile);
+              const profile = createdProfile as {
+                id: string;
+                email: string;
+                name: string;
+                bio: string;
+                avatar_color: string;
+              };
+              setUser({
+                id: profile.id,
+                email: profile.email,
+                name: profile.name,
+                bio: profile.bio,
+                avatarColor: profile.avatar_color,
+              });
+              setIsAuthenticated(true);
+              console.log('[AuthContext] User authenticated with manually created profile');
+              return;
+            }
+          } else if (retryError) {
             console.error('[AuthContext] Retry failed:', JSON.stringify(retryError, null, 2));
             throw retryError;
           }
@@ -103,9 +153,9 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
             console.log('[AuthContext] User authenticated after retry');
             return;
           }
+        } else {
+          throw error;
         }
-        
-        throw error;
       }
 
       if (data) {
