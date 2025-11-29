@@ -65,11 +65,10 @@
     "eslint": "^9.31.0",
     "eslint-config-expo": "~10.0.0",
     "typescript": "~5.9.2"
-  }
-
+  },
   "expo": {
-  "install": {
-    "exclude": ["react", "react-dom", "react-native"]
+    "install": {
+      "exclude": ["react", "react-dom", "react-native"]
+    }
   }
 }
-
