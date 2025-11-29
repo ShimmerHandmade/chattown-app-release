@@ -2,6 +2,7 @@
   "name": "expo-app",
   "main": "expo-router/entry",
   "version": "1.0.0",
+  "private": true,
   "scripts": {
     "start": "bunx rork start -p p03ynwm0kjgdsyleu570j --tunnel",
     "start-web": "bunx rork start -p p03ynwm0kjgdsyleu570j --web --tunnel",
@@ -42,6 +43,11 @@
     "expo-web-browser": "~15.0.8",
     "hono": "^4.10.6",
     "lucide-react-native": "^0.475.0",
+
+    "react": "18.3.1",
+    "react-dom": "18.3.1",
+    "react-native": "0.76.3",
+
     "react-native-gesture-handler": "~2.28.0",
     "react-native-safe-area-context": "~5.6.0",
     "react-native-screens": "~4.16.0",
@@ -55,10 +61,9 @@
   "devDependencies": {
     "@babel/core": "^7.25.2",
     "@expo/ngrok": "^4.1.0",
-    "@types/react": "~19.1.10",
+    "@types/react": "~18.3.12",
     "eslint": "^9.31.0",
     "eslint-config-expo": "~10.0.0",
     "typescript": "~5.9.2"
-  },
-  "private": true
+  }
 }
