@@ -1,12 +1,22 @@
-import createContextHook from "@nkzw/create-context-hook";
-import { useCallback, useMemo, useEffect, useState } from "react";
-import { Room, Message } from "@/types/chat";
-import { useAuth } from "@/contexts/AuthContext";
+import { useCallback, useMemo, useEffect, useState, createContext, useContext, ReactNode } from "react";
+import { Room, Message, User } from "@/types/chat";
 import { supabase } from "@/lib/supabase";
 import { Alert } from "react-native";
 
-export const [ChatProvider, useChat] = createContextHook(() => {
-  const { user } = useAuth();
+interface ChatContextType {
+  rooms: Room[];
+  currentUser: User | null;
+  isLoading: boolean;
+  createRoom: (name: string) => Promise<Room>;
+  joinRoom: (code: string) => Promise<Room | null>;
+  sendMessage: (roomId: string, text: string) => Promise<void>;
+  deleteRoom: (roomId: string) => Promise<void>;
+  refetchRooms: () => Promise<void>;
+}
+
+const ChatContext = createContext<ChatContextType | undefined>(undefined);
+
+export function ChatProvider({ children, user }: { children: ReactNode; user: User | null }) {
   const [rooms, setRooms] = useState<Room[]>([]);
   const [isLoading, setIsLoading] = useState(false);
 
@@ -302,7 +312,7 @@ export const [ChatProvider, useChat] = createContextHook(() => {
     [fetchRooms]
   );
 
-  return useMemo(
+  const value = useMemo(
     () => ({
       rooms,
       currentUser: user,
@@ -315,4 +325,14 @@ export const [ChatProvider, useChat] = createContextHook(() => {
     }),
     [rooms, user, isLoading, createRoom, joinRoom, sendMessage, deleteRoom, fetchRooms]
   );
-});
+
+  return <ChatContext.Provider value={value}>{children}</ChatContext.Provider>;
+}
+
+export function useChat() {
+  const context = useContext(ChatContext);
+  if (context === undefined) {
+    throw new Error('useChat must be used within a ChatProvider');
+  }
+  return context;
+}

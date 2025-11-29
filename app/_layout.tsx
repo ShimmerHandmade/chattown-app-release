@@ -52,15 +52,23 @@ export default function RootLayout() {
   return (
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
-        <NotificationProvider>
-          <ChatProvider>
-            <GestureHandlerRootView style={styles.gestureHandler}>
-              <RootLayoutNav />
-            </GestureHandlerRootView>
-          </ChatProvider>
-        </NotificationProvider>
+        <NestedProviders />
       </AuthProvider>
     </QueryClientProvider>
+  );
+}
+
+function NestedProviders() {
+  const { user } = useAuth();
+  
+  return (
+    <NotificationProvider user={user}>
+      <ChatProvider user={user}>
+        <GestureHandlerRootView style={styles.gestureHandler}>
+          <RootLayoutNav />
+        </GestureHandlerRootView>
+      </ChatProvider>
+    </NotificationProvider>
   );
 }
 

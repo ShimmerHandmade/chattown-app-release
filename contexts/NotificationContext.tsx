@@ -1,9 +1,8 @@
-import createContextHook from "@nkzw/create-context-hook";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, createContext, useContext, ReactNode } from "react";
 import * as Notifications from "expo-notifications";
 import { Platform } from "react-native";
 import Constants from "expo-constants";
-import { useAuth } from "@/contexts/AuthContext";
+import { User } from "@/types/chat";
 import { supabase } from "@/lib/supabase";
 import { router } from "expo-router";
 
@@ -17,8 +16,13 @@ Notifications.setNotificationHandler({
   }),
 });
 
-export const [NotificationProvider, useNotifications] = createContextHook(() => {
-  const { user } = useAuth();
+interface NotificationContextType {
+  expoPushToken: string | undefined;
+}
+
+const NotificationContext = createContext<NotificationContextType | undefined>(undefined);
+
+export function NotificationProvider({ children, user }: { children: ReactNode; user: User | null }) {
   const [expoPushToken, setExpoPushToken] = useState<string | undefined>();
   const notificationListener = useRef<Notifications.Subscription | null>(null);
   const responseListener = useRef<Notifications.Subscription | null>(null);
@@ -130,7 +134,17 @@ export const [NotificationProvider, useNotifications] = createContextHook(() => 
     };
   }, [user]);
 
-  return useMemo(() => ({
+  const value = useMemo(() => ({
     expoPushToken,
   }), [expoPushToken]);
-});
+
+  return <NotificationContext.Provider value={value}>{children}</NotificationContext.Provider>;
+}
+
+export function useNotifications() {
+  const context = useContext(NotificationContext);
+  if (context === undefined) {
+    throw new Error('useNotifications must be used within a NotificationProvider');
+  }
+  return context;
+}
