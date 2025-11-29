@@ -53,7 +53,7 @@ export default function ProfileEditModal({
               onClose();
               router.replace("/auth");
               Alert.alert("Success", "Your account has been deleted");
-            } catch (error) {
+            } catch {
               Alert.alert("Error", "Failed to delete account");
             }
           },

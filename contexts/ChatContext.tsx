@@ -127,7 +127,7 @@ export function ChatProvider({ children, user }: { children: ReactNode; user: Us
       setRooms([]);
       setIsLoading(false);
     }
-  }, [user, fetchRooms]);
+  }, [user]);
 
   useEffect(() => {
     if (!user) return;
@@ -335,7 +335,7 @@ export function ChatProvider({ children, user }: { children: ReactNode; user: Us
       deleteRoom,
       refetchRooms: fetchRooms,
     }),
-    [rooms, user, isLoading, createRoom, joinRoom, sendMessage, deleteRoom, fetchRooms]
+    [rooms, user, isLoading, createRoom, joinRoom, sendMessage, deleteRoom]
   );
 
   return <ChatContext.Provider value={value}>{children}</ChatContext.Provider>;
