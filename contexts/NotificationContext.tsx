@@ -68,7 +68,10 @@ export function NotificationProvider({ children, user }: { children: ReactNode; 
   }
 
   useEffect(() => {
-    if (!user) return;
+    if (!user) {
+      setExpoPushToken(undefined);
+      return;
+    }
 
     let isMounted = true;
 
@@ -111,7 +114,11 @@ export function NotificationProvider({ children, user }: { children: ReactNode; 
           const data = response.notification.request.content.data;
           
           if (data.roomId && data.type === "new_message") {
-            router.push(`/room/${data.roomId}`);
+            try {
+              router.push(`/room/${data.roomId}`);
+            } catch (error) {
+              console.error("Error navigating to room:", error);
+            }
           }
         }
       );

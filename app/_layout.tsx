@@ -32,7 +32,7 @@ function RootLayoutNav() {
       console.log('[RootLayoutNav] Redirecting to home');
       router.replace("/");
     }
-  }, [isAuthenticated, isLoading, segments]);
+  }, [isAuthenticated, isLoading, segments, router]);
 
   useEffect(() => {
     if (!isLoading) {
@@ -65,16 +65,20 @@ export default function RootLayout() {
 }
 
 function NestedProviders() {
-  const { user } = useAuth();
+  const { user, isLoading } = useAuth();
+  
+  if (isLoading) {
+    return null;
+  }
   
   return (
-    <NotificationProvider user={user}>
-      <ChatProvider user={user}>
-        <GestureHandlerRootView style={styles.gestureHandler}>
+    <GestureHandlerRootView style={styles.gestureHandler}>
+      <NotificationProvider user={user}>
+        <ChatProvider user={user}>
           <RootLayoutNav />
-        </GestureHandlerRootView>
-      </ChatProvider>
-    </NotificationProvider>
+        </ChatProvider>
+      </NotificationProvider>
+    </GestureHandlerRootView>
   );
 }
 

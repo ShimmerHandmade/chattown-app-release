@@ -25,7 +25,10 @@ export function ChatProvider({ children, user }: { children: ReactNode; user: Us
   };
 
   const fetchRooms = useCallback(async () => {
-    if (!user) return;
+    if (!user) {
+      setRooms([]);
+      return;
+    }
 
     try {
       setIsLoading(true);
@@ -37,7 +40,8 @@ export function ChatProvider({ children, user }: { children: ReactNode; user: Us
 
       if (membersError) {
         console.error("Error fetching rooms:", JSON.stringify(membersError, null, 2));
-        throw membersError;
+        setIsLoading(false);
+        return;
       }
 
       const roomIds = roomMembers.map((rm) => rm.room_id);
@@ -104,7 +108,6 @@ export function ChatProvider({ children, user }: { children: ReactNode; user: Us
         details: error?.details,
         hint: error?.hint,
       });
-    } finally {
       setIsLoading(false);
     }
   }, [user]);
