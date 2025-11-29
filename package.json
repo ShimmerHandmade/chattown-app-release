@@ -68,7 +68,7 @@
   },
   "expo": {
     "install": {
-      "exclude": ["react", "react-dom", "react-native"]
+      "exclude": ["react", "react-dom", "react-native", "expo-location"]
     }
   }
 }
