@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useEffect, useState, createContext, useContext, ReactNode } from "react";
+import { useCallback, useMemo, useEffect, useState, createContext, useContext, ReactNode, useRef } from "react";
 import { Room, Message, User } from "@/types/chat";
 import { supabase } from "@/lib/supabase";
 import { Alert } from "react-native";
@@ -19,6 +19,7 @@ const ChatContext = createContext<ChatContextType | undefined>(undefined);
 export function ChatProvider({ children, user }: { children: ReactNode; user: User | null }) {
   const [rooms, setRooms] = useState<Room[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const fetchRoomsRef = useRef<(() => Promise<void>) | null>(null);
 
   const generateCode = (): string => {
     return Math.random().toString(36).substring(2, 8).toUpperCase();
@@ -48,6 +49,7 @@ export function ChatProvider({ children, user }: { children: ReactNode; user: Us
 
       if (roomIds.length === 0) {
         setRooms([]);
+        setIsLoading(false);
         return;
       }
 
@@ -59,6 +61,7 @@ export function ChatProvider({ children, user }: { children: ReactNode; user: Us
 
       if (roomsError) {
         console.error("Error fetching rooms data:", JSON.stringify(roomsError, null, 2));
+        setIsLoading(false);
         throw roomsError;
       }
 
@@ -100,6 +103,7 @@ export function ChatProvider({ children, user }: { children: ReactNode; user: Us
       );
 
       setRooms(roomsWithMessages);
+      setIsLoading(false);
     } catch (error: any) {
       console.error("Error fetching rooms:", JSON.stringify(error, null, 2));
       console.error("Error details:", {
@@ -113,10 +117,15 @@ export function ChatProvider({ children, user }: { children: ReactNode; user: Us
   }, [user]);
 
   useEffect(() => {
+    fetchRoomsRef.current = fetchRooms;
+  }, [fetchRooms]);
+
+  useEffect(() => {
     if (user) {
       fetchRooms();
     } else {
       setRooms([]);
+      setIsLoading(false);
     }
   }, [user, fetchRooms]);
 
@@ -133,7 +142,7 @@ export function ChatProvider({ children, user }: { children: ReactNode; user: Us
           table: "messages",
         },
         () => {
-          fetchRooms();
+          fetchRoomsRef.current?.();
         }
       )
       .on(
@@ -144,7 +153,7 @@ export function ChatProvider({ children, user }: { children: ReactNode; user: Us
           table: "room_members",
         },
         () => {
-          fetchRooms();
+          fetchRoomsRef.current?.();
         }
       )
       .subscribe();
@@ -152,7 +161,7 @@ export function ChatProvider({ children, user }: { children: ReactNode; user: Us
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [user, fetchRooms]);
+  }, [user]);
 
   const createRoom = useCallback(
     async (name: string): Promise<Room> => {
