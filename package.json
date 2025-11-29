@@ -75,7 +75,10 @@
         "expo-notifications",
         "expo-splash-screen",
         "expo-web-browser",
-        "@types/react"
+        "@types/react",
+        "react", 
+        "react-dom", 
+        "react-native"
       ]
     }
   }
