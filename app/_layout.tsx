@@ -67,17 +67,15 @@ export default function RootLayout() {
 function NestedProviders() {
   const { user, isLoading } = useAuth();
   
-  if (isLoading) {
-    return null;
-  }
-  
   return (
     <GestureHandlerRootView style={styles.gestureHandler}>
-      <NotificationProvider user={user}>
-        <ChatProvider user={user}>
-          <RootLayoutNav />
-        </ChatProvider>
-      </NotificationProvider>
+      {!isLoading && (
+        <NotificationProvider user={user}>
+          <ChatProvider user={user}>
+            <RootLayoutNav />
+          </ChatProvider>
+        </NotificationProvider>
+      )}
     </GestureHandlerRootView>
   );
 }

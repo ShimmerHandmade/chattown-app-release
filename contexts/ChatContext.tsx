@@ -20,6 +20,7 @@ export function ChatProvider({ children, user }: { children: ReactNode; user: Us
   const [rooms, setRooms] = useState<Room[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const fetchRoomsRef = useRef<(() => Promise<void>) | null>(null);
+  const isMountedRef = useRef(true);
 
   const generateCode = (): string => {
     return Math.random().toString(36).substring(2, 8).toUpperCase();
@@ -32,7 +33,7 @@ export function ChatProvider({ children, user }: { children: ReactNode; user: Us
     }
 
     try {
-      setIsLoading(true);
+      if (isMountedRef.current) setIsLoading(true);
 
       const { data: roomMembers, error: membersError } = await supabase
         .from("room_members")
@@ -41,15 +42,17 @@ export function ChatProvider({ children, user }: { children: ReactNode; user: Us
 
       if (membersError) {
         console.error("Error fetching rooms:", JSON.stringify(membersError, null, 2));
-        setIsLoading(false);
+        if (isMountedRef.current) setIsLoading(false);
         return;
       }
 
       const roomIds = roomMembers.map((rm) => rm.room_id);
 
       if (roomIds.length === 0) {
-        setRooms([]);
-        setIsLoading(false);
+        if (isMountedRef.current) {
+          setRooms([]);
+          setIsLoading(false);
+        }
         return;
       }
 
@@ -61,7 +64,7 @@ export function ChatProvider({ children, user }: { children: ReactNode; user: Us
 
       if (roomsError) {
         console.error("Error fetching rooms data:", JSON.stringify(roomsError, null, 2));
-        setIsLoading(false);
+        if (isMountedRef.current) setIsLoading(false);
         throw roomsError;
       }
 
@@ -102,8 +105,10 @@ export function ChatProvider({ children, user }: { children: ReactNode; user: Us
         })
       );
 
-      setRooms(roomsWithMessages);
-      setIsLoading(false);
+      if (isMountedRef.current) {
+        setRooms(roomsWithMessages);
+        setIsLoading(false);
+      }
     } catch (error: any) {
       console.error("Error fetching rooms:", JSON.stringify(error, null, 2));
       console.error("Error details:", {
@@ -112,7 +117,7 @@ export function ChatProvider({ children, user }: { children: ReactNode; user: Us
         details: error?.details,
         hint: error?.hint,
       });
-      setIsLoading(false);
+      if (isMountedRef.current) setIsLoading(false);
     }
   }, [user]);
 
@@ -121,12 +126,18 @@ export function ChatProvider({ children, user }: { children: ReactNode; user: Us
   }, [fetchRooms]);
 
   useEffect(() => {
+    isMountedRef.current = true;
+    
     if (user) {
       fetchRooms();
     } else {
       setRooms([]);
       setIsLoading(false);
     }
+
+    return () => {
+      isMountedRef.current = false;
+    };
   }, [user, fetchRooms]);
 
   useEffect(() => {
