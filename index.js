@@ -1,2 +1,2 @@
-import './lib/react-use-polyfill.js';
-import 'expo-router/entry';
+require('./lib/react-use-polyfill.js');
+require('expo-router/entry');
