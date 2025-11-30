@@ -23,11 +23,11 @@ interface NotificationContextValue {
 
 const [NotificationContextProvider, useNotifications] = createContextHook<NotificationContextValue>(() => {
   const [expoPushToken, setExpoPushToken] = useState<string | undefined>();
-  const setTokenRef = useRef(setExpoPushToken);
+  const setTokenRef = useRef<(token: string | undefined) => void>(() => {});
   
   useEffect(() => {
     setTokenRef.current = setExpoPushToken;
-  }, [setExpoPushToken]);
+  }, []);
   
   return {
     expoPushToken,
