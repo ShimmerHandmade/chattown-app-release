@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useRef, useState, createContext, useContext, ReactNode } from "react";
+import createContextHook from "@nkzw/create-context-hook";
+import { useEffect, useRef, useState, ReactNode } from "react";
 import * as Notifications from "expo-notifications";
 import { Platform } from "react-native";
 import Constants from "expo-constants";
@@ -16,14 +17,33 @@ Notifications.setNotificationHandler({
   }),
 });
 
-interface NotificationContextType {
+interface NotificationContextValue {
   expoPushToken: string | undefined;
 }
 
-const NotificationContext = createContext<NotificationContextType | undefined>(undefined);
+const [NotificationContextProvider, useNotifications] = createContextHook<NotificationContextValue>(() => {
+  const [expoPushToken, setExpoPushToken] = useState<string | undefined>();
+  
+  return {
+    expoPushToken,
+    _internal_setExpoPushToken: setExpoPushToken,
+  } as any;
+});
+
+export { useNotifications };
 
 export function NotificationProvider({ children, user }: { children: ReactNode; user: User | null }) {
-  const [expoPushToken, setExpoPushToken] = useState<string | undefined>();
+  return (
+    <NotificationContextProvider>
+      <NotificationProviderInternal user={user}>{children}</NotificationProviderInternal>
+    </NotificationContextProvider>
+  );
+}
+
+function NotificationProviderInternal({ children, user }: { children: ReactNode; user: User | null }) {
+  const context = useNotifications();
+  const { _internal_setExpoPushToken } = context as any;
+  
   const notificationListener = useRef<Notifications.Subscription | null>(null);
   const responseListener = useRef<Notifications.Subscription | null>(null);
 
@@ -69,7 +89,7 @@ export function NotificationProvider({ children, user }: { children: ReactNode; 
 
   useEffect(() => {
     if (!user) {
-      setExpoPushToken(undefined);
+      _internal_setExpoPushToken(undefined);
       return;
     }
 
@@ -82,7 +102,7 @@ export function NotificationProvider({ children, user }: { children: ReactNode; 
         if (!isMounted) return;
         
         if (token) {
-          setExpoPushToken(token);
+          _internal_setExpoPushToken(token);
           try {
             await supabase.from("push_tokens").upsert({
               user_id: user.id,
@@ -139,19 +159,7 @@ export function NotificationProvider({ children, user }: { children: ReactNode; 
         console.error("Error removing notification listeners:", error);
       }
     };
-  }, [user]);
+  }, [user, _internal_setExpoPushToken]);
 
-  const value = useMemo(() => ({
-    expoPushToken,
-  }), [expoPushToken]);
-
-  return <NotificationContext.Provider value={value}>{children}</NotificationContext.Provider>;
-}
-
-export function useNotifications() {
-  const context = useContext(NotificationContext);
-  if (context === undefined) {
-    throw new Error('useNotifications must be used within a NotificationProvider');
-  }
-  return context;
+  return <>{children}</>;
 }

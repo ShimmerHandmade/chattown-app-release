@@ -1,4 +1,5 @@
-import { useCallback, useMemo, useEffect, useState, createContext, useContext, ReactNode, useRef } from "react";
+import createContextHook from "@nkzw/create-context-hook";
+import { useCallback, useEffect, useState, useRef, ReactNode } from "react";
 import { Room, Message, User } from "@/types/chat";
 import { supabase } from "@/lib/supabase";
 import { Alert } from "react-native";
@@ -14,19 +15,19 @@ interface ChatContextType {
   refetchRooms: () => Promise<void>;
 }
 
-const ChatContext = createContext<ChatContextType | undefined>(undefined);
-
-export function ChatProvider({ children, user }: { children: ReactNode; user: User | null }) {
+const [ChatContextProvider, useChat] = createContextHook<ChatContextType>(() => {
   const [rooms, setRooms] = useState<Room[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const fetchRoomsRef = useRef<(() => Promise<void>) | null>(null);
   const isMountedRef = useRef(true);
+  const userRef = useRef<User | null>(null);
 
   const generateCode = (): string => {
     return Math.random().toString(36).substring(2, 8).toUpperCase();
   };
 
   const fetchRooms = useCallback(async () => {
+    const user = userRef.current;
     if (!user) {
       setRooms([]);
       return;
@@ -119,63 +120,11 @@ export function ChatProvider({ children, user }: { children: ReactNode; user: Us
       });
       if (isMountedRef.current) setIsLoading(false);
     }
-  }, [user]);
-
-  useEffect(() => {
-    fetchRoomsRef.current = fetchRooms;
-  }, [fetchRooms]);
-
-  useEffect(() => {
-    isMountedRef.current = true;
-    
-    if (user) {
-      fetchRooms();
-    } else {
-      setRooms([]);
-      setIsLoading(false);
-    }
-
-    return () => {
-      isMountedRef.current = false;
-    };
-  }, [user, fetchRooms]);
-
-  useEffect(() => {
-    if (!user) return;
-
-    const channel = supabase
-      .channel("room-changes")
-      .on(
-        "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "messages",
-        },
-        () => {
-          fetchRoomsRef.current?.();
-        }
-      )
-      .on(
-        "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "room_members",
-        },
-        () => {
-          fetchRoomsRef.current?.();
-        }
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [user]);
+  }, []);
 
   const createRoom = useCallback(
     async (name: string): Promise<Room> => {
+      const user = userRef.current;
       if (!user) throw new Error("User not authenticated");
 
       try {
@@ -242,11 +191,12 @@ export function ChatProvider({ children, user }: { children: ReactNode; user: Us
         throw error;
       }
     },
-    [user, fetchRooms]
+    [fetchRooms]
   );
 
   const joinRoom = useCallback(
     async (code: string): Promise<Room | null> => {
+      const user = userRef.current;
       if (!user) throw new Error("User not authenticated");
 
       try {
@@ -294,11 +244,12 @@ export function ChatProvider({ children, user }: { children: ReactNode; user: Us
         return null;
       }
     },
-    [user, fetchRooms]
+    [fetchRooms]
   );
 
   const sendMessage = useCallback(
     async (roomId: string, text: string) => {
+      const user = userRef.current;
       if (!user) return;
 
       try {
@@ -316,7 +267,7 @@ export function ChatProvider({ children, user }: { children: ReactNode; user: Us
         Alert.alert("Error", "Failed to send message");
       }
     },
-    [user, fetchRooms]
+    [fetchRooms]
   );
 
   const deleteRoom = useCallback(
@@ -335,27 +286,90 @@ export function ChatProvider({ children, user }: { children: ReactNode; user: Us
     [fetchRooms]
   );
 
-  const value = useMemo(
-    () => ({
-      rooms,
-      currentUser: user,
-      isLoading,
-      createRoom,
-      joinRoom,
-      sendMessage,
-      deleteRoom,
-      refetchRooms: fetchRooms,
-    }),
-    [rooms, user, isLoading, createRoom, joinRoom, sendMessage, deleteRoom, fetchRooms]
-  );
+  return {
+    rooms,
+    currentUser: userRef.current,
+    isLoading,
+    createRoom,
+    joinRoom,
+    sendMessage,
+    deleteRoom,
+    refetchRooms: fetchRooms,
+    _internal_setUser: (user: User | null) => {
+      userRef.current = user;
+    },
+    _internal_fetchRoomsRef: fetchRoomsRef,
+    _internal_isMountedRef: isMountedRef,
+  } as any;
+});
 
-  return <ChatContext.Provider value={value}>{children}</ChatContext.Provider>;
+export { useChat };
+
+export function ChatProvider({ children, user }: { children: ReactNode; user: User | null }) {
+  return (
+    <ChatContextProvider>
+      <ChatProviderInternal user={user}>{children}</ChatProviderInternal>
+    </ChatContextProvider>
+  );
 }
 
-export function useChat() {
-  const context = useContext(ChatContext);
-  if (context === undefined) {
-    throw new Error('useChat must be used within a ChatProvider');
-  }
-  return context;
+function ChatProviderInternal({ children, user }: { children: ReactNode; user: User | null }) {
+  const context = useChat();
+  const { _internal_setUser, _internal_fetchRoomsRef, _internal_isMountedRef, refetchRooms } = context as any;
+
+  useEffect(() => {
+    _internal_setUser(user);
+  }, [user, _internal_setUser]);
+
+  useEffect(() => {
+    _internal_fetchRoomsRef.current = refetchRooms;
+  }, [refetchRooms, _internal_fetchRoomsRef]);
+
+  useEffect(() => {
+    _internal_isMountedRef.current = true;
+    
+    if (user) {
+      refetchRooms();
+    }
+
+    return () => {
+      _internal_isMountedRef.current = false;
+    };
+  }, [user, refetchRooms, _internal_isMountedRef]);
+
+  useEffect(() => {
+    if (!user) return;
+
+    const channel = supabase
+      .channel("room-changes")
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "messages",
+        },
+        () => {
+          _internal_fetchRoomsRef.current?.();
+        }
+      )
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "room_members",
+        },
+        () => {
+          _internal_fetchRoomsRef.current?.();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [user, _internal_fetchRoomsRef]);
+
+  return <>{children}</>;
 }
