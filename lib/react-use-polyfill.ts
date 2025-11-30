@@ -1,6 +1,6 @@
-import * as React from 'react';
+import React from 'react';
 
-if (!('use' in React)) {
+if (typeof React !== 'undefined' && !(React as any).use) {
   (React as any).use = function use<T>(promise: Promise<T> | T): T {
     if (promise instanceof Promise) {
       throw new Error(

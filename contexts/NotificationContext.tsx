@@ -23,10 +23,17 @@ interface NotificationContextValue {
 
 const [NotificationContextProvider, useNotifications] = createContextHook<NotificationContextValue>(() => {
   const [expoPushToken, setExpoPushToken] = useState<string | undefined>();
+  const setTokenRef = useRef(setExpoPushToken);
+  
+  useEffect(() => {
+    setTokenRef.current = setExpoPushToken;
+  }, [setExpoPushToken]);
   
   return {
     expoPushToken,
-    _internal_setExpoPushToken: setExpoPushToken,
+    _internal_setExpoPushToken: (token: string | undefined) => {
+      setTokenRef.current(token);
+    },
   } as any;
 });
 
@@ -46,6 +53,7 @@ function NotificationProviderInternal({ children, user }: { children: ReactNode;
   
   const notificationListener = useRef<Notifications.Subscription | null>(null);
   const responseListener = useRef<Notifications.Subscription | null>(null);
+  const isMountedRef = useRef(false);
 
   async function registerForPushNotificationsAsync() {
     if (Platform.OS === "web") {
@@ -88,18 +96,20 @@ function NotificationProviderInternal({ children, user }: { children: ReactNode;
   }
 
   useEffect(() => {
+    isMountedRef.current = true;
+    
     if (!user) {
-      _internal_setExpoPushToken(undefined);
+      if (isMountedRef.current) {
+        _internal_setExpoPushToken(undefined);
+      }
       return;
     }
-
-    let isMounted = true;
 
     const setupNotifications = async () => {
       try {
         const token = await registerForPushNotificationsAsync();
         
-        if (!isMounted) return;
+        if (!isMountedRef.current) return;
         
         if (token) {
           _internal_setExpoPushToken(token);
@@ -147,7 +157,7 @@ function NotificationProviderInternal({ children, user }: { children: ReactNode;
     }
 
     return () => {
-      isMounted = false;
+      isMountedRef.current = false;
       try {
         if (notificationListener.current) {
           notificationListener.current.remove();

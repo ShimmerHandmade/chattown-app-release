@@ -19,7 +19,7 @@ const [ChatContextProvider, useChat] = createContextHook<ChatContextType>(() => 
   const [rooms, setRooms] = useState<Room[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const fetchRoomsRef = useRef<(() => Promise<void>) | null>(null);
-  const isMountedRef = useRef(true);
+  const isMountedRef = useRef(false);
   const userRef = useRef<User | null>(null);
 
   const generateCode = (): string => {
